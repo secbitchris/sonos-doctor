@@ -172,6 +172,16 @@ class TestMeshTree(unittest.TestCase):
         self.assertNotIn("controller-path-mismatch",
                          codes(checks.run_checks(snap([spk, bridge],
                                                       mesh_tree=tree))))
+        # attribution to a gateway or an uplink port is path noise → quiet
+        spk["unifi"] = {"switch": "UDM", "sw_port": 10}
+        s = snap([spk, bridge], mesh_tree=tree,
+                 unifi={"available": True, "gateways": ["UDM"],
+                        "uplink_ports": [["SW-B", 1]]})
+        self.assertNotIn("controller-path-mismatch",
+                         codes(checks.run_checks(s)))
+        spk["unifi"] = {"switch": "SW-B", "sw_port": 1}
+        self.assertNotIn("controller-path-mismatch",
+                         codes(checks.run_checks(s)))
 
     def test_reparent_detected(self):
         a, b = self.two_speakers()

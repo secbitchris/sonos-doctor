@@ -64,8 +64,10 @@ def take_snapshot(ping_count=10, discover_timeout=4.0, use_unifi=True,
             if not d.get("room"):
                 d["room"] = p["zone"]
 
-    radio_to_mac = {d["radio_mac"]: d["mac"].lower()
-                    for d in devices if d.get("radio_mac") and d.get("mac")}
+    radio_to_mac = {rm: d["mac"].lower()
+                    for d in devices if d.get("mac")
+                    for rm in (d.get("radio_macs") or
+                               ([d["radio_mac"]] if d.get("radio_mac") else []))}
     snap["matrix"] = review.build_matrix(fleet, radio_to_mac)
 
     log("zone-group topology…")

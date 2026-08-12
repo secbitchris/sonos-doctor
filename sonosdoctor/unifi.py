@@ -84,4 +84,11 @@ def controller_context(key, host=None):
             "agreeing_switches": len(switches),
         })
     ctx["stp"] = stp
+    # ports where MAC-learning attribution is path noise, not edge truth:
+    # gateway devices and inter-switch uplink ports
+    ctx["gateways"] = [d.get("name") for d in dev
+                       if d.get("type") in ("udm", "ugw", "uxg")]
+    ctx["uplink_ports"] = [[d.get("name"), p.get("port_idx")]
+                           for d in dev for p in (d.get("port_table") or [])
+                           if p.get("is_uplink")]
     return ctx

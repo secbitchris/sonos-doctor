@@ -183,12 +183,17 @@ def run_checks(snap, previous=None, th=None):
     # controller FDB vs mesh tree: a wireless speaker's MAC should be learned
     # on its root bridge's switch port; disagreement = stale FDB or an
     # undiscovered bridge (labels lie — applied to topology)
+    gw = set((uni.get("gateways") or []))
+    uplink_ports = {tuple(x) for x in (uni.get("uplink_ports") or [])}
     for mac, node in tree.items():
         if node.get("via") != "sonosnet":
             continue
         d = by_mac.get(mac)
         u = (d or {}).get("unifi") or {}
         if not u.get("switch"):
+            continue
+        # gateway/uplink attribution is path noise, not a real location
+        if u["switch"] in gw or (u["switch"], u.get("sw_port")) in uplink_ports:
             continue
         cur, seen = mac, set()
         while tree.get(cur, {}).get("parent") and cur not in seen:

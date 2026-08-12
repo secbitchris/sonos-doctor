@@ -46,18 +46,19 @@ def device_info(ip, timeout=3.0):
     return out
 
 
-def radio_mac(ip, timeout=5.0):
-    """Wireless (ath0/wlan0) MAC from /status/ifconfig.
+def radio_macs(ip, timeout=5.0):
+    """ALL wireless MACs from /status/ifconfig (ath*/wlan* interfaces).
 
-    The mesh matrix identifies neighbours by their RADIO MAC, which differs
-    from the ethernet MAC in device_description.xml — this closes that gap.
+    The mesh matrix identifies neighbours by RADIO MACs, which differ from
+    the ethernet MAC in device_description.xml — and home-theater satellites
+    use a second (5 GHz) radio with its own MAC, so one is not enough.
     """
     txt = http_get(ip, "/status/ifconfig", timeout)
     if not txt:
-        return None
-    m = re.search(r"(?:ath0|wlan0)\S*\s+Link encap.*?HWaddr\s+([0-9A-Fa-f:]{17})",
-                  txt, re.S)
-    return m.group(1).lower() if m else None
+        return []
+    return [m.lower() for m in re.findall(
+        r"(?:ath|wlan)\d\S*\s+Link encap.*?HWaddr\s+([0-9A-Fa-f:]{17})",
+        txt, re.S)]
 
 
 def ping_stats(ip, count=10):
@@ -96,8 +97,9 @@ def probe_speaker(ip, ping_count=10):
     d = {"ip": ip, "tcp_1400_open": ok, "tcp_connect_ms": ms}
     if ok:
         d.update(device_info(ip))
-        rm = radio_mac(ip)
-        if rm:
-            d["radio_mac"] = rm
+        rms = radio_macs(ip)
+        if rms:
+            d["radio_mac"] = rms[0]
+            d["radio_macs"] = rms
     d["ping"] = ping_stats(ip, ping_count)
     return d
