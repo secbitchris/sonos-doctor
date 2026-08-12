@@ -90,6 +90,16 @@ select { font:inherit; background:var(--surface-1); color:var(--ink);
   border-radius:8px 8px 0 0; font-size:13.5px; user-select:none; }
 #tabs .tab.on { color:var(--ink); background:var(--surface-1);
   border-color:var(--ring); font-weight:600; }
+.topnav { display:flex; gap:8px; align-items:center; flex-wrap:wrap;
+  margin:0 0 16px; font-size:12.5px; }
+.topnav a, .topnav .cur { padding:4px 11px; border:1px solid var(--ring);
+  border-radius:6px; text-decoration:none; background:var(--surface-1);
+  color:var(--ink-2); white-space:nowrap; }
+.topnav a:hover { border-color:var(--series-1); color:var(--series-1); }
+.topnav .cur { background:var(--series-1); color:#fff;
+  border-color:var(--series-1); font-weight:600; }
+.topnav .hub { font-weight:600; color:var(--series-1); }
+.topnav .sep { color:var(--muted); }
 .guide h3 { font-size:13.5px; margin:20px 0 6px; }
 .guide p, .guide li { color:var(--ink-2); font-size:13.5px; }
 .guide code { background:var(--grid); padding:0 5px; border-radius:4px;
@@ -98,6 +108,12 @@ select { font:inherit; background:var(--surface-1); color:var(--ink);
 .guide .sev { font-weight:600; white-space:nowrap; }
 </style></head>
 <body><main>
+<nav class="topnav">
+<a class="hub" href="http://dashboards.example.lan/" title="All dashboards">&#9670; Dashboards</a>
+<span class="sep">·</span>
+<a href="http://netwatch.example.lan/" title="WAN/LAN outage history + UniFi health">Network Health</a>
+<span class="cur">Sonos Doctor</span>
+</nav>
 <h1>Sonos Doctor</h1>
 <div class="sub" id="meta">loading…</div>
 <div style="margin-top:10px"><label class="sub">snapshot
@@ -519,6 +535,8 @@ function sparks(snap, hist) {
 async function boot() {
   if (window.EMBEDDED) {          // static exported report — no server
     document.querySelector('label.sub').style.display = 'none';
+    const nv = document.querySelector('.topnav');  // LAN links are meaningless off-site
+    if (nv) nv.style.display = 'none';
     render(EMBEDDED.snapshot);
     sparks(EMBEDDED.snapshot, EMBEDDED.history || {});
     renderTimeline(EMBEDDED.timeline || []);
