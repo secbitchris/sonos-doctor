@@ -83,12 +83,28 @@ svg.spark { display:block; }
   z-index:10; max-width:290px; white-space:normal; }
 select { font:inherit; background:var(--surface-1); color:var(--ink);
   border:1px solid var(--baseline); border-radius:7px; padding:3px 8px; }
+#tabs { display:flex; gap:6px; margin-top:14px;
+  border-bottom:1px solid var(--baseline); }
+#tabs .tab { padding:7px 14px; cursor:pointer; color:var(--muted);
+  border:1px solid transparent; border-bottom:none;
+  border-radius:8px 8px 0 0; font-size:13.5px; user-select:none; }
+#tabs .tab.on { color:var(--ink); background:var(--surface-1);
+  border-color:var(--ring); font-weight:600; }
+.guide h3 { font-size:13.5px; margin:20px 0 6px; }
+.guide p, .guide li { color:var(--ink-2); font-size:13.5px; }
+.guide code { background:var(--grid); padding:0 5px; border-radius:4px;
+  font-size:12.5px; }
+.guide table td { white-space:normal; vertical-align:top; }
+.guide .sev { font-weight:600; white-space:nowrap; }
 </style></head>
 <body><main>
 <h1>Sonos Doctor</h1>
 <div class="sub" id="meta">loading…</div>
 <div style="margin-top:10px"><label class="sub">snapshot
 <select id="snapsel"></select></label></div>
+<nav id="tabs"><span class="tab on" data-tab="dash">Dashboard</span><span
+ class="tab" data-tab="guide">How to read this</span></nav>
+<div id="tab-dash">
 <div class="tiles" id="tiles"></div>
 <h2>Findings</h2><div class="card" id="findings"></div>
 <h2>Network matrix <span class="sub" style="text-transform:none">— row hears
@@ -103,6 +119,179 @@ warnings appeared (+) and cleared (−) across snapshots</span></h2>
 each speaker's actual STP uplink, with the signal it hears its parent at</span></h2>
 <div class="card" id="tree"></div>
 <h2>Fleet</h2><div class="card" id="fleet"></div>
+</div>
+<div id="tab-guide" class="guide" hidden>
+<h2>Triage order</h2><div class="card">
+<p>Read top to bottom: <b>tiles</b> (anything critical?) → <b>findings</b>
+(what the doctor thinks) → <b>recent changes</b> (when it started) →
+<span class="mesh-only"><b>matrix / mesh tree</b> (which link or parent is to
+blame) → </span><b>fleet</b> (the sick speaker's vitals and history). One
+snapshot is a photo; the trend is the diagnosis — flip the snapshot selector
+or read the timeline before concluding anything.</p></div>
+
+<h2>Sections</h2><div class="card">
+<h3>Snapshot selector</h3>
+<p>Every collection run is stored. Pick an older one and the whole page
+re-renders as the network looked then — use it to answer "was it like this
+before?". <code>△n</code> = warnings in that snapshot.</p>
+<h3>Tiles</h3>
+<p><b>critical</b> = broken right now. <b>worst jitter</b> &gt; 30 ms is
+where grouped-room audio starts dropping. <b>bridge points</b> = wired
+Sonos bridging the mesh onto the LAN: a drop by one means a bridge went
+offline; an increase means someone wired a speaker somewhere new.</p>
+<h3>Findings</h3>
+<p><span class="sev" style="color:var(--st-crit)">critical</span> — act now
+(player unreachable, a Sonos won the STP root election).
+<span class="sev" style="color:var(--st-warn)">warning</span> — degraded but
+functioning (loss, jitter, interference, weak paths).
+<span class="sev">info</span> — context, not a problem by itself. Every code
+is listed in the reference below.</p>
+<div class="mesh-only"><h3>Network matrix</h3>
+<p><b>Row hears column at N dB</b> — direction matters; compare cell (A,B)
+with (B,A): more than ~15 dB apart points at noise or obstruction at the
+quieter end. Darker = stronger. Blank = can't hear each other (normal for
+distant rooms; home-theater satellites only talk 5 GHz to their soundbar, so
+their rows are nearly empty). <b>Outlined cells are the links audio actually
+rides</b> (forwarding STP tunnels on both ends) — check those are dark, and
+check a problem room has non-blank alternatives in its row (a row with one
+usable cell has no fallback). Bands: ≥45 excellent · 30–44 good ·
+20–29 marginal · &lt;20 audio at risk.</p>
+<h3>Mesh tree</h3>
+<p>Each speaker under the wired bridge its audio actually flows through,
+with the dB it hears that parent at (orange &lt; 20 dB = weak link in use).
+Indentation = extra hops; only home-theater satellites should sit at depth 2.
+♪ = that group is playing now. Use it for blast radius: everything indented
+under a bridge is affected if that bridge misbehaves.</p></div>
+<h3>Recent changes</h3>
+<p>Warnings appearing (<b style="color:var(--st-warn)">+</b>) and clearing
+(<b style="color:var(--st-good)">−</b>) between snapshots. A symptom cluster
+on one speaker across a short window (jitter, then SSDP-missing, then
+recovery) is one problem, not three. Warnings that flap on/off sit at a
+threshold edge — watch, don't chase.</p>
+<h3>Fleet table</h3>
+<p><b>1400</b> — Sonos control port; closed = the app cannot reach it.
+<b>loss / avg / jitter</b> — ping vitals; any loss is worth a look, jitter
+&gt; 30 ms breaks grouped audio, LAN avg should be &lt; 10 ms.
+<b>ANI</b> (0–9) — how hard the radio fights interference; sustained 8–9 =
+hostile RF <i>near that speaker</i> (Boosts/Bridges idle at 9 by design).
+<b>noise</b> — floor in dBm; −95 or lower is healthy, −87 or higher warns.
+<b>PHY err/h</b> — corrupted-frame rate; read it relatively (one speaker at
+3× the fleet lives in a bad RF spot). Dashes appear when snapshots are taken
+too close together (the counter resets on read).
+<b>link</b> — the speaker's own connection truth<span class="unifi-only">,
+plus which switch port its traffic enters the LAN on (<code>←</code>)</span>.
+♪ = its group is playing. <b>jitter history</b> — hover for numbers.</p></div>
+
+<h2>Findings reference</h2><div class="card"><table>
+<tr><th>code</th><th>sev</th><th>meaning → what to do</th></tr>
+<tr><td><code>stp-root-is-sonos</code></td><td class="sev" style="color:var(--st-crit)">crit</td>
+<td>Players agree a Sonos is the LAN's spanning-tree ROOT — your network
+topology is decided by a speaker; whole-LAN slowdowns follow. Set a core
+switch's STP priority below 32768 (e.g. 4096).</td></tr>
+<tr class="unifi-only"><td><code>stp-root-not-switch</code></td><td class="sev" style="color:var(--st-crit)">crit</td>
+<td>Switches report a root bridge that isn't a managed switch. Same fix as
+above; identify the device by MAC first.</td></tr>
+<tr><td><code>port-1400-closed</code></td><td class="sev" style="color:var(--st-crit)">crit</td>
+<td>Speaker answers ping but not the Sonos app port. Power-cycle it; if it
+persists, factory reset is next.</td></tr>
+<tr><td><code>packet-loss</code></td><td class="sev" style="color:var(--st-warn)">warn/crit</td>
+<td>Dropped pings. Confirm on the trend (one bad sample flaps); then look at
+its uplink signal<span class="mesh-only"> in the tree</span> and local RF.</td></tr>
+<tr><td><code>high-jitter</code></td><td class="sev" style="color:var(--st-warn)">warn</td>
+<td>Delay variance &gt; 30 ms — grouped rooms drift/drop. Same
+investigation as loss; jitter usually points at airtime contention.</td></tr>
+<tr><td><code>stp-root-disagreement</code></td><td class="sev" style="color:var(--st-warn)">warn</td>
+<td>Players name different root bridges — mid-reconvergence snapshot or a
+partitioned mesh. Re-snapshot; persistent disagreement = investigate.</td></tr>
+<tr><td><code>ssdp-missing</code></td><td class="sev" style="color:var(--st-warn)">warn</td>
+<td>In the household but silent to discovery multicast — the app will show
+it as missing. If chronic on one speaker: its link. If fleet-wide: see
+<code>multicast-broken</code>.</td></tr>
+<tr><td><code>multicast-broken</code></td><td class="sev" style="color:var(--st-warn)">warn</td>
+<td>SSDP found nothing but a TCP sweep found players — the network filters
+multicast (IGMP snooping without querier, AP isolation, "WiFi
+optimization"). This alone explains "the app can't find my speakers."</td></tr>
+<tr><td><code>high-ani</code></td><td class="sev" style="color:var(--st-warn)">warn</td>
+<td>Radio at max interference mitigation. Persistent on the same speakers =
+find the 2.4 GHz source near them (cameras, baby monitors, microwaves,
+neighbour WiFi).</td></tr>
+<tr><td><code>noise-floor-high</code></td><td class="sev" style="color:var(--st-warn)">warn</td>
+<td>RF noise floor ≥ −87 dBm — something is transmitting close by.
+Physically relocate the speaker or the noise source.</td></tr>
+<tr class="mesh-only"><td><code>weak-mesh-path</code></td><td class="sev" style="color:var(--st-warn)">warn</td>
+<td>Audio is riding a tunnel weaker than 15 dB. Move the speaker or its
+parent closer, or add/wire a bridge between them.</td></tr>
+<tr class="mesh-only"><td><code>asymmetric-path</code></td><td class="sev" style="color:var(--st-warn)">warn</td>
+<td>An in-use link ≥ 15 dB louder one way than the other — noise, antenna
+placement, or obstruction at the quieter end. Investigate the end that
+hears poorly.</td></tr>
+<tr class="mesh-only"><td><code>channel-mismatch</code></td><td class="sev" style="color:var(--st-warn)">warn</td>
+<td>SonosNet players on different channels — a split mesh (usually
+mid-migration). Set one SonosNet channel and let it settle.</td></tr>
+<tr class="unifi-only"><td><code>switch-priority-weak</code></td><td class="sev" style="color:var(--st-warn)">warn</td>
+<td>Switches at STP priority ≥ 32768 can lose the root election to a Sonos
+(which advertises ~32768). Lower core switch priorities.</td></tr>
+<tr class="unifi-only"><td><code>link-up-but-dead</code></td><td class="sev" style="color:var(--st-warn)">warn</td>
+<td>Controller says the client is up; the player doesn't answer. Stale
+controller state or one-way path — trust the direct probe.</td></tr>
+<tr><td><code>behind-wifi-extender</code></td><td class="sev" style="color:var(--st-warn)">warn</td>
+<td>Player sits behind a WiFi repeater — the classic cause of drops and
+ghost players (extenders mangle multicast). Move it to the main AP's
+coverage or wire it.</td></tr>
+<tr><td><code>multiple-households</code></td><td class="sev" style="color:var(--st-warn)">warn</td>
+<td>Two+ Sonos systems share this LAN — they cannot see or group with each
+other. Usually an S1/S2 split or a half-migrated system: decide on one
+household and re-add strays to it.</td></tr>
+<tr><td><code>mixed-generations</code></td><td class="sev" style="color:var(--st-warn)">warn</td>
+<td>S1 and S2 players on one LAN. They can't group unless everything runs
+S1. Options: all-S1, split systems deliberately, or replace S1 units.</td></tr>
+<tr><td><code>low-battery</code></td><td class="sev" style="color:var(--st-warn)">warn</td>
+<td>Portable (Roam/Move) ≤ 20% and not charging.</td></tr>
+<tr><td><code>device-missing</code></td><td class="sev" style="color:var(--st-warn)">warn</td>
+<td>Present in the previous snapshot, gone now. Unplugged, or lost its
+network — check power first.</td></tr>
+<tr class="mesh-only"><td><code>multiple-bridge-points</code></td><td class="sev">info</td>
+<td>Several wired Sonos bridge the mesh — redundancy, healthy ONLY while
+STP is healthy. Know where they are (listed in the finding).</td></tr>
+<tr class="mesh-only"><td><code>mesh-reparented</code></td><td class="sev">info</td>
+<td>A speaker's uplink moved. Occasional = normal self-healing; frequent
+on one speaker = marginal RF path — check its signal options in the
+matrix.</td></tr>
+<tr class="mesh-only"><td><code>unknown-mesh-neighbor</code></td><td class="sev">info</td>
+<td>A radio outside this household heard at strength — a neighbour's Sonos
+on the same channel, or a forgotten device. It competes for airtime; change
+SonosNet channel if it's loud.</td></tr>
+<tr class="unifi-only"><td><code>controller-path-mismatch</code></td><td class="sev">info</td>
+<td>Controller learned the speaker's MAC on a different port than its mesh
+tree implies — stale switch FDB entry, or an undocumented cable path. If it
+persists across snapshots, trace the port.</td></tr>
+<tr class="unifi-only"><td><code>alias-oui-mismatch</code></td><td class="sev">info</td>
+<td>Controller's name for this device doesn't look like the Sonos it
+actually is. Labels lie — verify identity by MAC/OUI, then fix the
+alias.</td></tr>
+<tr><td><code>reboot-detected</code></td><td class="sev">info</td>
+<td>BootSeq incremented — the speaker restarted since the previous
+snapshot. Clusters of reboots = power or overheating.</td></tr>
+</table></div>
+
+<h2>Healthy baselines</h2><div class="card"><p>
+Signal on an in-use link: <b>≥ 30 dB</b> · loss: <b>0%</b> · jitter:
+<b>&lt; 10 ms</b> (worry at 30) · LAN avg latency: <b>&lt; 10 ms</b> ·
+ANI: <b>≤ 7</b> (Boosts 8–9 normal) · noise floor: <b>≤ −95 dBm</b><span
+class="mesh-only"> · one wired bridge minimum, satellites the only depth-2
+nodes</span>.</p></div>
+
+<h2>Command line</h2><div class="card"><p>
+<code>snapshot</code> collect + check + store (exit 0/1/2 = clean/warn/crit)
+· <code>snapshot --no-unifi</code> pure network probe ·
+<code>snapshot --sweep</code> force a TCP sweep when multicast is broken ·
+<code>watch --interval 60</code> live mode while moving speakers — prints
+finding diffs each pass · <code>report --html &gt; report.html</code>
+this page as one self-contained file (leave-behind) ·
+<code>history</code> / <code>report --id N</code> stored snapshots ·
+<code>prune --keep-days N</code> retention · <code>selftest</code> run the
+bundled test suite.</p></div>
+</div>
 <div id="tip"></div>
 <script>
 const SEQ = ['--seq-100','--seq-200','--seq-300','--seq-400','--seq-500',
@@ -152,8 +341,20 @@ function renderTimeline(tl) {
   }).join('') : '<div class="sub">no warning changes recorded yet</div>';
 }
 
+document.querySelectorAll('#tabs .tab').forEach(t => t.onclick = () => {
+  document.querySelectorAll('#tabs .tab').forEach(x =>
+    x.classList.toggle('on', x === t));
+  document.getElementById('tab-dash').hidden = t.dataset.tab != 'dash';
+  document.getElementById('tab-guide').hidden = t.dataset.tab != 'guide';
+});
+
 function render(s) {
   const devs = s.devices || [], f = s._findings || [];
+  // the guide only documents what this network actually has
+  const uniOk = !!(s.unifi && s.unifi.available);
+  const meshOk = (s.matrix || []).length > 0;
+  document.querySelectorAll('.unifi-only').forEach(e => e.hidden = !uniOk);
+  document.querySelectorAll('.mesh-only').forEach(e => e.hidden = !meshOk);
   document.getElementById('meta').textContent =
     `snapshot #${s._id} · ${s.generated} · collected on ${s.host}` +
     ` · UniFi ${s.unifi && s.unifi.available ? 'enriched' : 'not available'}`;
