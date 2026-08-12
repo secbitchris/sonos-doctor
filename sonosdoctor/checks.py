@@ -245,13 +245,17 @@ def run_checks(snap, previous=None, th=None):
         if not e.get("dst_resolved") and e["from_db"] >= th["foreign_db"]:
             heard_foreign.setdefault(e["dst_mac"], []).append(
                 (e["src_mac"], e["from_db"]))
+    from .unifi import is_sonos_oui
     for fmac, hearers in heard_foreign.items():
         loudest = max(h[1] for h in hearers)
+        vendor = ("its OUI is Sonos — a neighbour's system on the same "
+                  "channel, or a forgotten/unregistered unit"
+                  if is_sonos_oui(fmac) else
+                  "its OUI is NOT Sonos — likely a non-Sonos 2.4 GHz device")
         F.append(_f("info", "unknown-mesh-neighbor", fmac,
                     f"Radio {fmac} is not in this household but "
-                    f"{len(hearers)} player(s) hear it (loudest {loudest} dB) — "
-                    f"a neighbour's Sonos on the same channel, or a forgotten "
-                    f"device. It competes for the same airtime."))
+                    f"{len(hearers)} player(s) hear it (loudest {loudest} dB); "
+                    f"{vendor}. It competes for the same airtime."))
 
     # ---- history-based checks ----
     if previous:

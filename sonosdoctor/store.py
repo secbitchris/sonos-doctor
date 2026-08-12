@@ -45,10 +45,12 @@ def open_db(path=None):
 def _device_row(sid, d):
     p = d.get("ping") or {}
     u = d.get("unifi") or {}
-    wired = u.get("wired")
+    # NEVER UniFi's is_wired here — the controller marks every Sonos wired
+    # (mesh MACs learned on bridge ports); only speaker-side truth is stored
+    wired = d.get("wired_physical")
     if wired is None:
         ct = (d.get("connection_type") or "").lower()
-        wired = d.get("eth_link") == 1 or ct.startswith("wired") or None
+        wired = d.get("eth_link") == 1 or ct.startswith(("wired", "ethernet")) or None
     return (sid, (d.get("mac") or "").lower() or None, d.get("radio_mac"),
             d.get("ip"), d.get("room"), d.get("model_number"), d.get("sw"),
             d.get("channel"), d.get("ani"), d.get("phy_errors"),

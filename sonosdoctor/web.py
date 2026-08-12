@@ -564,7 +564,11 @@ class Handler(BaseHTTPRequestHandler):
             elif url.path == "/api/snapshots":
                 self._json(store.list_snapshots(conn))
             elif url.path == "/api/snapshot":
-                sid = int(q["id"][0]) if q.get("id") else None
+                try:
+                    sid = int(q["id"][0]) if q.get("id") else None
+                except ValueError:
+                    self._json({"error": "bad id"}, 400)
+                    return
                 snap = store.get_snapshot(conn, sid)
                 self._json(snap if snap else {"error": "empty"})
             elif url.path == "/api/timeline":

@@ -54,21 +54,38 @@ the local /24 — and reports the broken multicast as a finding, because that
 IS a diagnosis. Force or widen the sweep with `--sweep [CIDR]`.
 
 Run `python3 -m sonosdoctor selftest` from the source tree to verify a
-checkout (26 tests pinned against real captured fleet data).
+checkout (35 tests pinned against real captured fleet data — including
+synthetic recreations of the incidents each check exists for).
+
+Note: `tests/fixtures/` contains real (scrubbed) captures from the home
+fleet — keep the repo private, or re-scrub before publishing.
 
 ## Use
 
 ```sh
 python3 -m sonosdoctor snapshot            # collect + check + store; exit 0/1/2 = ok/warn/crit
 python3 -m sonosdoctor snapshot --no-unifi # pure network probe, no controller
+python3 -m sonosdoctor snapshot --sweep    # force a TCP sweep (multicast-broken sites)
+python3 -m sonosdoctor watch --interval 60 # on-site mode: live finding diffs each pass
 python3 -m sonosdoctor report              # re-print latest stored snapshot
+python3 -m sonosdoctor report --html > report.html  # self-contained leave-behind page
 python3 -m sonosdoctor history             # list stored snapshots
 python3 -m sonosdoctor import-legacy sonos-*.json   # ingest old sonosdiag.py output
-python3 -m sonosdoctor serve --port 8090   # web UI: matrix, findings, fleet, trends
+python3 -m sonosdoctor serve --port 8090   # web UI: matrix, tree, findings, trends, guide
+python3 -m sonosdoctor prune --keep-days 180        # retention
+python3 -m sonosdoctor selftest            # run the bundled test suite (source tree only)
 ```
 
 History lives in SQLite (`~/.sonos-doctor/history.db`, override with `--db`).
 The `snapshot` exit code makes cron alerting trivial.
+
+Field-visit extras: multiple households on one LAN are each collected
+(S1/S2 splits detected), WiFi-extender-fed players are flagged, Roam/Move
+battery is read, and foreign radios competing for airtime are identified by
+OUI. The web UI ships a "How to read this" tab — triage order, findings
+reference with actions, healthy baselines — which auto-hides UniFi- and
+mesh-specific content when the viewed snapshot has neither. The same guide
+is embedded in `report --html` exports.
 
 UniFi enrichment reads `UNIFI_API_KEY` from the environment (or a path in
 `UNIFI_KEYFILE`), `UNIFI_HOST` defaults to `192.168.1.1`. No credentials are
