@@ -14,7 +14,8 @@ from .collect import http_get
 ZP_TAGS = (("ZoneName", "zone"), ("LocalUID", "uid"), ("SerialNumber", "serial"),
            ("SoftwareVersion", "sw"), ("HardwareVersion", "hw"),
            ("IPAddress", "ip"), ("MACAddress", "mac"), ("SeriesID", "series"),
-           ("WifiModeString", "wifi_mode"),
+           ("WifiModeString", "wifi_mode"), ("SWGen", "swgen"),
+           ("HouseholdControlID", "household"),
            ("ConnectionTypeString", "connection_type"))
 
 NODE_RE = re.compile(

@@ -41,28 +41,51 @@ def take_snapshot(ping_count=10, discover_timeout=4.0, use_unifi=True,
 
     alive = [d["ip"] for d in devices if d["tcp_1400_open"]]
 
-    log("fleet review (/support/review) — one fetch covers the household…")
-    fleet = []
-    for ip in alive[:3]:                       # retry against up to 3 players
-        xml = review.fetch_review(ip)
-        if xml:
-            fleet = review.parse_review(xml)
-            break
+    log("fleet review (/support/review) — one fetch covers a household…")
     by_mac = {d["mac"].lower(): d for d in devices if d.get("mac")}
-    for p in fleet:
-        d = by_mac.get((p.get("mac") or "").lower())
-        if d is None:                          # in household but not discovered
-            d = {"ip": p.get("ip"), "mac": p.get("mac"), "room": p.get("zone"),
-                 "tcp_1400_open": None, "ssdp_missing": True, "ping": {}}
-            devices.append(d)
-        for k in ("uid", "series", "channel", "ani", "phy_errors",
-                  "noise_floor", "wifi_mode", "connection_type"):
-            if k in p:
-                d[k] = p[k]
-        if p.get("zone"):
-            d["zone"] = p["zone"]           # keeps the (L)/(R) suffixes
-            if not d.get("room"):
-                d["room"] = p["zone"]
+
+    def merge_review(players):
+        for p in players:
+            d = by_mac.get((p.get("mac") or "").lower())
+            if d is None:                      # in household but not discovered
+                d = {"ip": p.get("ip"), "mac": p.get("mac"),
+                     "room": p.get("zone"), "tcp_1400_open": None,
+                     "ssdp_missing": True, "ping": {}}
+                devices.append(d)
+                if d.get("mac"):
+                    by_mac[d["mac"].lower()] = d
+            for k in ("uid", "series", "channel", "ani", "phy_errors",
+                      "noise_floor", "wifi_mode", "connection_type",
+                      "swgen", "household"):
+                if k in p:
+                    d[k] = p[k]
+            if p.get("zone"):
+                d["zone"] = p["zone"]          # keeps the (L)/(R) suffixes
+                if not d.get("room"):
+                    d["room"] = p["zone"]
+
+    # One review covers ONE household; a LAN can hold several (S1/S2 split
+    # systems, two separate setups). Keep fetching from players no review
+    # has covered yet, up to 3 households.
+    fleet = []
+    for _ in range(3):
+        uncovered = [d["ip"] for d in devices
+                     if d.get("ip") in alive and d.get("tcp_1400_open")
+                     and not d.get("uid")]
+        if not uncovered:
+            break
+        got = None
+        for ip in uncovered[:3]:               # retry within this household
+            xml = review.fetch_review(ip)
+            if xml:
+                got = review.parse_review(xml)
+                break
+        if not got:
+            break
+        fleet.extend(got)
+        merge_review(got)
+    snap["households"] = sorted({d["household"] for d in devices
+                                 if d.get("household")})
 
     radio_to_mac = {rm: d["mac"].lower()
                     for d in devices if d.get("mac")
@@ -94,6 +117,8 @@ def take_snapshot(ping_count=10, discover_timeout=4.0, use_unifi=True,
                 d["role"] = mem.get("role")
                 if mem.get("ethlink") is not None:
                     d["eth_link"] = mem["ethlink"]
+                if mem.get("behindwifiextender") is not None:
+                    d["behind_extender"] = mem["behindwifiextender"]
 
     uni = {"available": False, "error": "disabled"}
     if use_unifi:

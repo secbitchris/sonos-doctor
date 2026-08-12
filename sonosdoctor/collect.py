@@ -61,6 +61,25 @@ def radio_macs(ip, timeout=5.0):
         txt, re.S)]
 
 
+def battery_status(ip, timeout=4.0):
+    """Roam/Move battery from /status/batterystatus (absent on mains models)."""
+    txt = http_get(ip, "/status/batterystatus", timeout)
+    if not txt:
+        return None
+    out = {}
+    for tag, key in (("Level", "level"), ("Health", "health"),
+                     ("PowerSource", "power_source"), ("Temperature", "temp")):
+        m = re.search(rf"<{tag}>([^<]+)</{tag}>", txt, re.I)
+        if m:
+            out[key] = m.group(1)
+    if "level" in out:
+        try:
+            out["level"] = int(re.sub(r"\D", "", out["level"]))
+        except ValueError:
+            pass
+    return out or None
+
+
 def ping_stats(ip, count=10):
     """Latency / jitter / loss. Jitter = stdev of RTTs.
 
@@ -101,5 +120,9 @@ def probe_speaker(ip, ping_count=10):
         if rms:
             d["radio_mac"] = rms[0]
             d["radio_macs"] = rms
+        if any(w in (d.get("model") or "").lower() for w in ("roam", "move")):
+            b = battery_status(ip)
+            if b:
+                d["battery"] = b
     d["ping"] = ping_stats(ip, ping_count)
     return d

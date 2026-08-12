@@ -135,7 +135,10 @@ async function load(id) {
   render(snap);
   const hist = await (await fetch('/api/history')).json();
   sparks(snap, hist);
-  const tl = await (await fetch('/api/timeline')).json();
+  renderTimeline(await (await fetch('/api/timeline')).json());
+}
+
+function renderTimeline(tl) {
   document.getElementById('timeline').innerHTML = tl.length ? tl.map(ev => {
     const item = (f, sign) =>
       `<span style="margin-right:14px">${sign == '+'
@@ -313,6 +316,13 @@ function sparks(snap, hist) {
 }
 
 async function boot() {
+  if (window.EMBEDDED) {          // static exported report — no server
+    document.querySelector('label.sub').style.display = 'none';
+    render(EMBEDDED.snapshot);
+    sparks(EMBEDDED.snapshot, EMBEDDED.history || {});
+    renderTimeline(EMBEDDED.timeline || []);
+    return;
+  }
   const snaps = await (await fetch('/api/snapshots')).json();
   const sel = document.getElementById('snapsel');
   sel.innerHTML = snaps.map(s =>
@@ -357,37 +367,9 @@ class Handler(BaseHTTPRequestHandler):
                 snap = store.get_snapshot(conn, sid)
                 self._json(snap if snap else {"error": "empty"})
             elif url.path == "/api/timeline":
-                rows = conn.execute(
-                    "SELECT s.id, s.ts, f.severity, f.code, f.subject"
-                    " FROM snapshot s LEFT JOIN finding f"
-                    " ON f.snapshot_id = s.id AND f.severity != 'info'"
-                    " ORDER BY s.ts").fetchall()
-                snaps = {}
-                order = []
-                for r in rows:
-                    if r["id"] not in snaps:
-                        snaps[r["id"]] = {"ts": r["ts"], "keys": set()}
-                        order.append(r["id"])
-                    if r["code"]:
-                        snaps[r["id"]]["keys"].add(
-                            (r["severity"], r["code"], r["subject"]))
-                events = []
-                for prev_id, cur_id in zip(order, order[1:]):
-                    prev, cur = snaps[prev_id]["keys"], snaps[cur_id]["keys"]
-                    added = sorted(cur - prev)
-                    resolved = sorted(prev - cur)
-                    if added or resolved:
-                        events.append({
-                            "ts": snaps[cur_id]["ts"], "id": cur_id,
-                            "added": [{"severity": s, "code": c, "subject": j}
-                                      for s, c, j in added],
-                            "resolved": [{"severity": s, "code": c, "subject": j}
-                                         for s, c, j in resolved]})
-                self._json(events[::-1][:50])
+                self._json(store.timeline(conn))
             elif url.path == "/api/history":
-                macs = [r["mac"] for r in conn.execute(
-                    "SELECT DISTINCT mac FROM device WHERE mac IS NOT NULL")]
-                self._json({m: store.device_history(conn, m) for m in macs})
+                self._json(store.all_histories(conn))
             else:
                 self._json({"error": "not found"}, 404)
         finally:

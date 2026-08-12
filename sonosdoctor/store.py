@@ -132,6 +132,40 @@ def device_history(conn, mac, limit=500):
         " WHERE d.mac = ? ORDER BY s.ts DESC LIMIT ?", (mac.lower(), limit))][::-1]
 
 
+def timeline(conn, limit=50):
+    """Findings diffs (warn/crit) between consecutive snapshots, newest first."""
+    rows = conn.execute(
+        "SELECT s.id, s.ts, f.severity, f.code, f.subject"
+        " FROM snapshot s LEFT JOIN finding f"
+        " ON f.snapshot_id = s.id AND f.severity != 'info'"
+        " ORDER BY s.ts").fetchall()
+    snaps, order = {}, []
+    for r in rows:
+        if r["id"] not in snaps:
+            snaps[r["id"]] = {"ts": r["ts"], "keys": set()}
+            order.append(r["id"])
+        if r["code"]:
+            snaps[r["id"]]["keys"].add((r["severity"], r["code"], r["subject"]))
+    events = []
+    for prev_id, cur_id in zip(order, order[1:]):
+        prev, cur = snaps[prev_id]["keys"], snaps[cur_id]["keys"]
+        added, resolved = sorted(cur - prev), sorted(prev - cur)
+        if added or resolved:
+            events.append({
+                "ts": snaps[cur_id]["ts"], "id": cur_id,
+                "added": [{"severity": s, "code": c, "subject": j}
+                          for s, c, j in added],
+                "resolved": [{"severity": s, "code": c, "subject": j}
+                             for s, c, j in resolved]})
+    return events[::-1][:limit]
+
+
+def all_histories(conn):
+    macs = [r["mac"] for r in conn.execute(
+        "SELECT DISTINCT mac FROM device WHERE mac IS NOT NULL")]
+    return {m: device_history(conn, m) for m in macs}
+
+
 def prune(conn, keep_days=180):
     """Delete snapshots (and their rows, via cascade) older than keep_days."""
     import datetime

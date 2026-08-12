@@ -111,7 +111,18 @@ def cmd_report(a):
         print("no snapshots in the database yet — run: sonos-doctor snapshot",
               file=sys.stderr)
         return 1
-    if a.json:
+    if a.html:
+        from . import web
+        embedded = json.dumps({
+            "snapshot": snap,
+            "history": store.all_histories(conn),
+            "timeline": store.timeline(conn),
+        }).replace("</", "<\\/")      # keep </script> out of the inline JSON
+        html = web.PAGE.replace(
+            "<script>",
+            f"<script>window.EMBEDDED = {embedded};</script>\n<script>", 1)
+        print(html)
+    elif a.json:
         print(json.dumps(snap, indent=1))
     else:
         print_summary(snap, snap.get("_findings", []))
@@ -149,6 +160,45 @@ def cmd_import(a):
 def cmd_serve(a):
     from . import web
     web.serve(a.db, a.bind, a.port)
+    return 0
+
+
+def cmd_watch(a):
+    """On-site mode: snapshot repeatedly, print finding diffs live."""
+    import time
+    conn = store.open_db(a.db)
+    prev_keys, n = None, 0
+    print(f"watching every {a.interval}s (ping x{a.ping_count}) — Ctrl-C to stop",
+          file=sys.stderr)
+    try:
+        while True:
+            snap = snapmod.take_snapshot(ping_count=a.ping_count,
+                                         use_unifi=not a.no_unifi,
+                                         log=lambda m: None)
+            previous = store.previous_snapshot(conn, snap["generated"])
+            _annotate_phy_rates(snap, previous)
+            findings = checks.run_checks(snap, previous)
+            sid = store.save_snapshot(conn, snap, findings)
+            keys = {(f["severity"], f["code"], f["subject"])
+                    for f in findings if f["severity"] != "info"}
+            crit = sum(1 for f in findings if f["severity"] == "crit")
+            warn = sum(1 for f in findings if f["severity"] == "warn")
+            jit = max([(d.get("ping") or {}).get("jitter_ms") or 0
+                       for d in snap["devices"]] or [0])
+            print(f"{snap['generated']}  #{sid}  {len(snap['devices'])} players"
+                  f"  crit={crit} warn={warn}  worst jitter {jit} ms")
+            if prev_keys is not None:
+                for s_, c, j in sorted(keys - prev_keys):
+                    print(f"   + {s_} [{c}] {j}")
+                for s_, c, j in sorted(prev_keys - keys):
+                    print(f"   − resolved [{c}] {j}")
+            prev_keys = keys
+            n += 1
+            if a.count and n >= a.count:
+                break
+            time.sleep(a.interval)
+    except KeyboardInterrupt:
+        print("\nstopped", file=sys.stderr)
     return 0
 
 
@@ -202,6 +252,8 @@ def main(argv=None):
     s = sub.add_parser("report", parents=[common], help="print a stored snapshot (latest by default)")
     s.add_argument("--id", type=int, default=None)
     s.add_argument("--json", action="store_true")
+    s.add_argument("--html", action="store_true",
+                   help="self-contained HTML report on stdout (leave-behind)")
     s.set_defaults(fn=cmd_report)
 
     s = sub.add_parser("history", parents=[common], help="list stored snapshots")
@@ -216,6 +268,15 @@ def main(argv=None):
     s.add_argument("--bind", default="127.0.0.1")
     s.add_argument("--port", type=int, default=8090)
     s.set_defaults(fn=cmd_serve)
+
+    s = sub.add_parser("watch", parents=[common],
+                       help="on-site mode: snapshot every N seconds, "
+                            "print finding diffs live")
+    s.add_argument("--interval", type=int, default=120)
+    s.add_argument("--count", type=int, default=0, help="stop after N (0=forever)")
+    s.add_argument("--ping-count", type=int, default=5)
+    s.add_argument("--no-unifi", action="store_true")
+    s.set_defaults(fn=cmd_watch)
 
     s = sub.add_parser("prune", parents=[common],
                        help="delete snapshots older than --keep-days")

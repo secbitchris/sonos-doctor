@@ -148,6 +148,34 @@ def run_checks(snap, previous=None, th=None):
                     f"discover players here (IGMP snooping / mDNS-SSDP "
                     f"filtering is the usual culprit)."))
 
+    # ---- portable-network hazards ----
+    for d in devices:
+        if d.get("behind_extender") == 1:
+            F.append(_f("warn", "behind-wifi-extender", label(d),
+                        "This player sits behind a WiFi extender/repeater — "
+                        "the classic cause of Sonos drops and ghost players "
+                        "(extenders mangle multicast and double latency). "
+                        "Move it to the main AP or wire it."))
+        b = d.get("battery")
+        if b and isinstance(b.get("level"), int) and b["level"] <= 20 \
+                and str(b.get("power_source", "")).upper().find("CHARG") < 0:
+            F.append(_f("warn", "low-battery", label(d),
+                        f"Battery at {b['level']}% and not charging "
+                        f"(health {b.get('health')})."))
+    households = snap.get("households") or []
+    if len(households) > 1:
+        F.append(_f("warn", "multiple-households", f"{len(households)} systems",
+                    f"{len(households)} separate Sonos households share this "
+                    f"LAN — speakers in different households cannot see or "
+                    f"group with each other. Usually an S1/S2 split or a "
+                    f"half-migrated system."))
+    gens = {d.get("swgen") for d in devices if d.get("swgen")}
+    if len(gens) > 1:
+        F.append(_f("warn", "mixed-generations", "fleet",
+                    f"Both S1 and S2 generation players are present "
+                    f"(SWGen {sorted(gens)}) — they cannot group together "
+                    f"unless the whole system runs S1."))
+
     # ---- fleet-wide coherence ----
     channels = {d.get("channel") for d in devices
                 if d.get("channel") and (d.get("wifi_mode") or "").startswith("SONOSNET")}

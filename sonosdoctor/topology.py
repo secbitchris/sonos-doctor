@@ -19,7 +19,7 @@ SOAP_BODY = (
 
 MEMBER_ATTRS = ("UUID", "ZoneName", "Location", "BootSeq", "WirelessMode",
                 "ConnectionType", "ChannelFreq", "EthLink", "WifiEnabled",
-                "Invisible", "SoftwareVersion")
+                "Invisible", "SoftwareVersion", "BehindWifiExtender", "SWGen")
 
 
 def fetch_zone_groups(ip, timeout=8.0):
@@ -41,7 +41,8 @@ def fetch_zone_groups(ip, timeout=8.0):
 def _member_dict(el, role):
     d = {k.lower(): el.get(k) for k in MEMBER_ATTRS if el.get(k) is not None}
     for k in ("BootSeq", "WirelessMode", "ConnectionType", "ChannelFreq",
-              "EthLink", "WifiEnabled", "Invisible"):
+              "EthLink", "WifiEnabled", "Invisible", "BehindWifiExtender",
+              "SWGen"):
         lk = k.lower()
         if lk in d:
             try:
