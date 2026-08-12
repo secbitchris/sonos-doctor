@@ -38,6 +38,24 @@ controller required.
 - **History** — device disappeared vs previous snapshot; reboots detected via
   BootSeq deltas.
 
+## Taking it to another network
+
+Build the single-file artifact and copy it to any laptop with Python ≥ 3.8:
+
+```sh
+./build.sh                       # → dist/sonos-doctor.pyz (~25 KB)
+python3 sonos-doctor.pyz snapshot --no-unifi
+```
+
+Requirements on site: be on the same VLAN/segment as the speakers, nothing
+else. If SSDP multicast is filtered (a classic "the app can't find my
+speakers" network), the snapshot automatically falls back to a TCP sweep of
+the local /24 — and reports the broken multicast as a finding, because that
+IS a diagnosis. Force or widen the sweep with `--sweep [CIDR]`.
+
+Run `python3 -m sonosdoctor selftest` from the source tree to verify a
+checkout (26 tests pinned against real captured fleet data).
+
 ## Use
 
 ```sh

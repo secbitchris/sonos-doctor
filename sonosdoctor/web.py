@@ -202,8 +202,12 @@ function render(s) {
   // ---- fleet table ----
   const rows = devs.map(d => {
     const p = d.ping || {}, u = d.unifi || {};
-    const link = u.wired ? 'wired' : (u.signal ? `wifi ${u.signal} dBm`
-      : (d.connection_type || '—'));
+    // speaker's own view wins: UniFi marks every Sonos "wired" (mesh MACs
+    // are learned on the bridge ports); for wireless, show the bridge port
+    let link = d.wired_physical ? 'wired'
+      : (d.connection_type ? d.connection_type.split(' ')[0]
+         : (u.signal ? `wifi ${u.signal} dBm` : '—'));
+    if (!d.wired_physical && u.switch) link += ` ← ${u.switch} p${u.sw_port}`;
     return `<tr><td>${esc(d.room)}</td><td>${esc(d.ip)}</td>` +
       `<td>${esc(d.model_number || '')}</td>` +
       `<td>${d.tcp_1400_open === false ? '<b style="color:var(--st-crit)">closed</b>' : 'open'}</td>` +

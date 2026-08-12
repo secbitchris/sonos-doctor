@@ -1,0 +1,191 @@
+<?xml version="1.0" ?>
+<?xml-stylesheet type="text/xsl" href="/xml/review.xsl"?><ZPSupportInfo><Command cmdline='/usr/sbin/brctl showstp br0'>br0
+ bridge id		9800.38420b000004
+ designated root	1000.28704e000001
+ root port		   2			path cost		 248
+ max age		  20.00			bridge max age		   6.00
+ hello time		   2.00			bridge hello time	   1.00
+ forward delay		  15.00			bridge forward delay	   4.00
+ ageing time		  60.00			gc interval		   0.00
+ hello timer		   0.00			tcn timer		   0.00
+ topology change timer	   0.00			gc timer		   2.57
+ flags			
+
+
+eth0 (1)
+ port id		8001			state			disabled
+ designated root	8000.38420b000004	path cost		  10
+ designated bridge	8000.38420b000004	message age timer	   0.00
+ designated port	8001			forward delay timer	   0.00
+ designated cost	   0			hold timer		   0.00
+ flags			
+
+ath0 (2) - tunnel to 78:28:CA:00:00:0A (remote STP state = forwarding, direct = 1)
+ port id		8002			state			forwarding
+ designated root	1000.28704e000001	path cost		 230
+ designated bridge	8f00.7828ca000009	message age timer	  17.60
+ designated port	8015			forward delay timer	   0.00
+ designated cost	  18			hold timer		   0.00
+ flags			
+
+ath0 (3) - tunnel to 94:9F:3E:00:00:0C (remote STP state = forwarding, direct = 3)
+ port id		8003			state			blocking
+ designated root	1000.28704e000001	path cost		 307
+ designated bridge	9800.949f3e00000b	message age timer	  17.60
+ designated port	800c			forward delay timer	   0.00
+ designated cost	 182			hold timer		   0.00
+ flags			
+
+ath0 (4) - tunnel to 48:A6:B8:00:00:06 (remote STP state = forwarding, direct = 3)
+ port id		8004			state			blocking
+ designated root	1000.28704e000001	path cost		 202
+ designated bridge	9800.48a6b8000005	message age timer	  16.64
+ designated port	8012			forward delay timer	   0.00
+ designated cost	 239			hold timer		   0.00
+ flags			
+
+ath0 (5) - tunnel to 94:9F:3E:00:00:02 (remote STP state = forwarding, direct = 3)
+ port id		8005			state			blocking
+ designated root	1000.28704e000001	path cost		 235
+ designated bridge	9800.949f3e000001	message age timer	  16.63
+ designated port	8012			forward delay timer	   0.00
+ designated cost	 234			hold timer		   0.00
+ flags			
+
+ath0 (6) - tunnel to 48:A6:B8:00:00:02 (remote STP state = forwarding, direct = 3)
+ port id		8006			state			blocking
+ designated root	1000.28704e000001	path cost		 245
+ designated bridge	9800.48a6b8000001	message age timer	  17.60
+ designated port	8012			forward delay timer	   0.00
+ designated cost	 210			hold timer		   0.00
+ flags			
+
+ath0 (7) - tunnel to 38:42:0B:00:00:0B (remote STP state = blocking, direct = 3)
+ port id		8007			state			forwarding
+ designated root	1000.28704e000001	path cost		 207
+ designated bridge	9800.38420b000004	message age timer	   0.00
+ designated port	8007			forward delay timer	   0.00
+ designated cost	 248			hold timer		   0.85
+ flags			
+
+ath0 (8) - tunnel to 48:A6:B8:00:00:04 (remote STP state = forwarding, direct = 3)
+ port id		8008			state			blocking
+ designated root	1000.28704e000001	path cost		 240
+ designated bridge	9800.48a6b8000003	message age timer	  17.60
+ designated port	8014			forward delay timer	   0.00
+ designated cost	 229			hold timer		   0.00
+ flags			
+
+ath0 (9) - tunnel to 38:42:0B:00:00:07 (remote STP state = forwarding, direct = 3)
+ port id		8009			state			blocking
+ designated root	1000.28704e000001	path cost		 207
+ designated bridge	9800.38420b000006	message age timer	  17.59
+ designated port	8011			forward delay timer	   0.00
+ designated cost	 168			hold timer		   0.00
+ flags			
+
+ath0 (10) - tunnel to 38:42:0B:00:00:03 (remote STP state = blocking, direct = 3)
+ port id		800a			state			forwarding
+ designated root	1000.28704e000001	path cost		 230
+ designated bridge	9800.38420b000004	message age timer	   0.00
+ designated port	800a			forward delay timer	   0.00
+ designated cost	 248			hold timer		   0.85
+ flags			
+
+ath0 (11) - tunnel to 94:9F:3E:00:00:0A (remote STP state = blocking, direct = 3)
+ port id		800b			state			forwarding
+ designated root	1000.28704e000001	path cost		 311
+ designated bridge	9800.38420b000004	message age timer	   0.00
+ designated port	800b			forward delay timer	   0.00
+ designated cost	 248			hold timer		   0.85
+ flags			
+
+ath0 (12) - tunnel to 48:A6:B8:00:00:0A (remote STP state = forwarding, direct = 3)
+ port id		800c			state			blocking
+ designated root	1000.28704e000001	path cost		 216
+ designated bridge	9800.48a6b8000009	message age timer	  16.63
+ designated port	8010			forward delay timer	   0.00
+ designated cost	 244			hold timer		   0.00
+ flags			
+
+ath0 (13) - tunnel to 48:A6:B8:00:00:08 (remote STP state = blocking, direct = 3)
+ port id		800d			state			forwarding
+ designated root	1000.28704e000001	path cost		 302
+ designated bridge	9800.38420b000004	message age timer	   0.00
+ designated port	800d			forward delay timer	   0.00
+ designated cost	 248			hold timer		   0.85
+ flags			
+
+ath0 (14) - tunnel to 38:42:0B:00:00:09 (remote STP state = blocking, direct = 3)
+ port id		800e			state			forwarding
+ designated root	1000.28704e000001	path cost		 226
+ designated bridge	9800.38420b000004	message age timer	   0.00
+ designated port	800e			forward delay timer	   0.00
+ designated cost	 248			hold timer		   0.85
+ flags			
+
+ath0 (15) - tunnel to 78:28:CA:00:00:06 (remote STP state = forwarding, direct = 1)
+ port id		800f			state			blocking
+ designated root	1000.28704e000001	path cost		 302
+ designated bridge	8f00.7828ca000005	message age timer	  16.63
+ designated port	801c			forward delay timer	   0.00
+ designated cost	  18			hold timer		   0.00
+ flags			
+
+ath0 (16) - tunnel to 94:9F:3E:00:00:04 (remote STP state = forwarding, direct = 3)
+ port id		8010			state			blocking
+ designated root	1000.28704e000001	path cost		 292
+ designated bridge	9800.949f3e000003	message age timer	  16.62
+ designated port	801c			forward delay timer	   0.00
+ designated cost	 220			hold timer		   0.00
+ flags			
+
+ath0 (17) - tunnel to 34:7E:5C:00:00:07 (remote STP state = forwarding, direct = 3)
+ port id		8011			state			blocking
+ designated root	1000.28704e000001	path cost		 283
+ designated bridge	9800.347e5c000006	message age timer	  16.63
+ designated port	801b			forward delay timer	   0.00
+ designated cost	 196			hold timer		   0.00
+ flags			
+
+ath0 (18) - tunnel to 34:7E:5C:00:00:02 (remote STP state = forwarding, direct = 3)
+ port id		8012			state			blocking
+ designated root	1000.28704e000001	path cost		 235
+ designated bridge	9800.347e5c000001	message age timer	  16.67
+ designated port	801e			forward delay timer	   0.00
+ designated cost	 168			hold timer		   0.00
+ flags			
+
+ath0 (19) - tunnel to 5C:AA:FD:00:00:02 (remote STP state = forwarding, direct = 0)
+ port id		8013			state			blocking
+ designated root	1000.28704e000001	path cost		 590
+ designated bridge	9800.5caafd000001	message age timer	  16.24
+ designated port	8016			forward delay timer	   0.00
+ designated cost	 220			hold timer		   0.00
+ flags			
+
+ath0 (20) - tunnel to 78:28:CA:00:00:0C (remote STP state = forwarding, direct = 3)
+ port id		8014			state			blocking
+ designated root	1000.28704e000001	path cost		 269
+ designated bridge	9800.7828ca00000b	message age timer	  16.64
+ designated port	8018			forward delay timer	   0.00
+ designated cost	 210			hold timer		   0.00
+ flags			
+
+ath0 (21) - tunnel to 78:28:CA:00:00:04 (remote STP state = blocking, direct = 3)
+ port id		8015			state			forwarding
+ designated root	1000.28704e000001	path cost		 273
+ designated bridge	9800.38420b000004	message age timer	   0.00
+ designated port	8015			forward delay timer	   0.00
+ designated cost	 248			hold timer		   0.85
+ flags			
+
+ath0 (22) - tunnel to 78:28:CA:00:00:08 (remote STP state = forwarding, direct = 0)
+ port id		8016			state			blocking
+ designated root	1000.28704e000001	path cost		 654
+ designated bridge	8f00.7828ca000007	message age timer	  16.22
+ designated port	8018			forward delay timer	   0.00
+ designated cost	  18			hold timer		   0.00
+ flags			
+
+</Command><!-- SDT: 26 ms --></ZPSupportInfo>

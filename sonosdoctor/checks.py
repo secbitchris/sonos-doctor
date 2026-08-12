@@ -129,6 +129,15 @@ def run_checks(snap, previous=None, th=None):
                             f"{label(peer_d) if peer_d else peer} at only "
                             f"{e['from_db']} dB — audio rides this weak link."))
 
+    # ---- discovery health ----
+    if snap.get("discovery_method") == "sweep" and devices:
+        F.append(_f("warn", "multicast-broken", "network",
+                    f"SSDP multicast found 0 players but a TCP sweep found "
+                    f"{snap.get('discovered_count')} — multicast is filtered "
+                    f"on this segment. The Sonos app itself will struggle to "
+                    f"discover players here (IGMP snooping / mDNS-SSDP "
+                    f"filtering is the usual culprit)."))
+
     # ---- fleet-wide coherence ----
     channels = {d.get("channel") for d in devices
                 if d.get("channel") and (d.get("wifi_mode") or "").startswith("SONOSNET")}

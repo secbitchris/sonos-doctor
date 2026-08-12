@@ -7,12 +7,22 @@ from . import collect, discovery, review, stp, topology, unifi
 
 
 def take_snapshot(ping_count=10, discover_timeout=4.0, use_unifi=True,
-                  unifi_host=None, log=lambda msg: None):
+                  unifi_host=None, sweep_cidr=None, force_sweep=False,
+                  log=lambda msg: None):
     snap = {"generated": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
             "host": socket.gethostname()}
 
     log("SSDP discovery…")
     disc = discovery.ssdp_discover(discover_timeout)
+    snap["ssdp_count"] = len(disc)
+    snap["discovery_method"] = "ssdp"
+    if not disc or force_sweep or sweep_cidr:
+        cidr = sweep_cidr or discovery.local_subnet()
+        log(f"SSDP found {len(disc)} — TCP-sweeping {cidr} for port 1400…")
+        swept = discovery.tcp_sweep(cidr)
+        if swept:
+            snap["discovery_method"] = ("ssdp+sweep" if disc else "sweep")
+            disc = {**swept, **disc}
     ips = sorted(disc)
     snap["discovered_count"] = len(ips)
     if not ips:
@@ -96,13 +106,22 @@ def take_snapshot(ping_count=10, discover_timeout=4.0, use_unifi=True,
             d["unifi"] = bymac[mac]
     snap["unifi"] = {k: v for k, v in uni.items() if k != "by_mac"}
 
+    # Physical bridge points only. NOTE: UniFi's is_wired is true for EVERY
+    # Sonos — the controller learns all mesh MACs on the bridging switch
+    # ports — so wired-ness must come from the speaker's own view (EthLink /
+    # ConnectionType). UniFi's switch+port is still the best LOCATION label,
+    # and for wireless speakers it names the bridge they ride behind.
     bridges = {}
     for d in devices:
         u = d.get("unifi") or {}
-        wired_by_unifi = u.get("wired")
-        wired_by_sonos = d.get("eth_link") == 1 or (
-            d.get("connection_type", "").lower().startswith("wired"))
-        if (wired_by_unifi or (not u and wired_by_sonos)):
+        wired = d.get("eth_link") == 1 or (
+            (d.get("connection_type") or "").lower().startswith(("wired", "ethernet")))
+        # Boosts never join zone groups and omit ConnectionType; they are
+        # wired by definition when their SSDP/HTTP side is up.
+        if (d.get("model") or "").lower().find("boost") >= 0 and d.get("tcp_1400_open"):
+            wired = True
+        d["wired_physical"] = bool(wired)
+        if wired:
             where = (f"{u['switch']} port {u.get('sw_port')}"
                      if u.get("switch") else f"wired ({d.get('room')})")
             bridges.setdefault(where, []).append(d.get("ip"))

@@ -37,6 +37,7 @@ def open_db(path=None):
     os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
     conn = sqlite3.connect(path)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL")   # cron writer + web reader coexist
     conn.executescript(SCHEMA)
     return conn
 
