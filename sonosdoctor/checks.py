@@ -10,7 +10,9 @@ THRESHOLDS = {
     "loss_crit_pct": 20.0,
     "jitter_warn_ms": 30.0,
     "mesh_weak_db": 15,         # signal on a forwarding SonosNet tunnel
-    "ani_warn": 8,              # OFDM ANI 0-9; sustained high = interference
+    "ani_warn": 9,              # OFDM ANI 0-9; sustained max = interference
+    "ani_warn_bridge": 10,      # Boosts/Bridges idle at 8-9 by design (radio
+                                # always busy) — 10 disables the check for them
     "noise_floor_warn_dbm": -87,
     "switch_prio_weak": 32768,  # Sonos advertises ~32768 — ties are losable
 }
@@ -88,7 +90,9 @@ def run_checks(snap, previous=None, th=None):
             F.append(_f("warn", "high-jitter", label(d),
                         f"Jitter {p['jitter_ms']} ms (avg {p.get('avg_ms')} ms) — "
                         f"grouped-room audio drops start around here."))
-        if (d.get("ani") or 0) >= th["ani_warn"]:
+        is_bridge = "boost" in (d.get("model") or "").lower() \
+            or "bridge" in (d.get("model") or "").lower()
+        if (d.get("ani") or 0) >= th["ani_warn_bridge" if is_bridge else "ani_warn"]:
             F.append(_f("warn", "high-ani", label(d),
                         f"OFDM ANI level {d['ani']}/9 — the radio is fighting "
                         f"sustained 2.4 GHz interference on ch {d.get('channel')}."))

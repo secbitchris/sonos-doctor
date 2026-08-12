@@ -89,6 +89,13 @@ class TestLinkQuality(unittest.TestCase):
                                                 tcp_1400_open=None)]))
         self.assertIn("ssdp-missing", codes(f, "warn"))
 
+    def test_ani_thresholds_model_aware(self):
+        speaker = base_device(ani=9)
+        f = checks.run_checks(snap([speaker]))
+        self.assertIn("high-ani", codes(f, "warn"))
+        boost = base_device(ani=9, model="Sonos Boost")
+        self.assertNotIn("high-ani", codes(checks.run_checks(snap([boost]))))
+
     def test_channel_mismatch(self):
         a = base_device()
         b = base_device(mac="aa:aa:aa:aa:aa:11", ip="192.168.1.52", channel=11)
