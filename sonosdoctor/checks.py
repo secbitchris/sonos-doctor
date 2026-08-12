@@ -122,7 +122,11 @@ def run_checks(snap, previous=None, th=None):
                     for d in devices if d.get("radio_mac")}
     for d in devices:
         for port in (d.get("stp") or {}).get("ports", []):
-            if port.get("state") != "forwarding" or not port.get("tunnel_to"):
+            # a tree edge forwards on BOTH ends; the root-side end of an idle
+            # tunnel is designated-forwarding, so one-sided state over-marks
+            if (port.get("state") != "forwarding"
+                    or port.get("remote_state") != "forwarding"
+                    or not port.get("tunnel_to")):
                 continue
             peer = radio_to_mac.get(port["tunnel_to"], port["tunnel_to"])
             e = edge_by_pair.get(((d.get("mac") or "").lower(), peer))

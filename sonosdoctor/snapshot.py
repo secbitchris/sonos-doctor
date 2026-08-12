@@ -59,8 +59,10 @@ def take_snapshot(ping_count=10, discover_timeout=4.0, use_unifi=True,
                   "noise_floor", "wifi_mode", "connection_type"):
             if k in p:
                 d[k] = p[k]
-        if not d.get("room") and p.get("zone"):
-            d["room"] = p["zone"]
+        if p.get("zone"):
+            d["zone"] = p["zone"]           # keeps the (L)/(R) suffixes
+            if not d.get("room"):
+                d["room"] = p["zone"]
 
     radio_to_mac = {d["radio_mac"]: d["mac"].lower()
                     for d in devices if d.get("radio_mac") and d.get("mac")}

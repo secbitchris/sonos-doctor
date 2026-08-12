@@ -115,6 +115,7 @@ function seqColor(db) {           // 0..~60 dB → sequential ramp
   const i = Math.min(SEQ.length - 1, Math.floor(db / 9));
   return SEQ[i];
 }
+function nm(d) { return d.zone || d.room; }
 function esc(s) { return String(s ?? '').replace(/[&<>"]/g,
   c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
@@ -160,20 +161,23 @@ function render(s) {
   // ---- matrix ----
   const byMac = {}; devs.forEach(d => { if (d.mac) byMac[d.mac.toLowerCase()] = d; });
   const order = devs.filter(d => d.mac)
-    .sort((a, b) => (a.room || '').localeCompare(b.room || ''));
+    .sort((a, b) => (nm(a) || '').localeCompare(nm(b) || ''));
   const edges = {};
   (s.matrix || []).forEach(e => { edges[e.src_mac + '|' + e.dst_mac] = e; });
+  // a tunnel is a real tree edge only when BOTH ends forward — the
+  // root-side end of every idle tunnel reports 'forwarding' (designated
+  // port), so one-sided state over-marks massively
   const inuse = new Set();
   devs.forEach(d => ((d.stp || {}).ports || []).forEach(p => {
-    if (p.state == 'forwarding' && p.tunnel_to) {
+    if (p.state == 'forwarding' && p.remote_state == 'forwarding' && p.tunnel_to) {
       const peer = devs.find(x => x.radio_mac == p.tunnel_to);
       if (peer && d.mac) inuse.add(d.mac.toLowerCase() + '|' + peer.mac.toLowerCase());
     }
   }));
   let h = '<table class="matrix"><tr><td class="rowhead"></td>' +
-    order.map(d => `<td class="colhead">${esc(d.room)}</td>`).join('') + '</tr>';
+    order.map(d => `<td class="colhead">${esc(nm(d))}</td>`).join('') + '</tr>';
   for (const r of order) {
-    h += `<tr><td class="rowhead">${esc(r.room)}</td>`;
+    h += `<tr><td class="rowhead">${esc(nm(r))}</td>`;
     for (const c of order) {
       if (r === c) { h += '<td style="background:var(--grid)"></td>'; continue; }
       const e = edges[r.mac.toLowerCase() + '|' + c.mac.toLowerCase()];
@@ -182,7 +186,7 @@ function render(s) {
       const light = e && e.from_db < 27;   // seq steps 100-300 need dark ink
       h += `<td class="${used ? 'inuse' : ''}"` +
         ` style="background:${bg || 'transparent'};color:${light ? '#0b0b0b' : '#ffffff'}"` +
-        (e ? ` data-t="<b>${esc(r.room)}</b> hears <b>${esc(c.room)}</b> at ` +
+        (e ? ` data-t="<b>${esc(nm(r))}</b> hears <b>${esc(nm(c))}</b> at ` +
              `<b>${e.from_db} dB</b> (reverse ${e.to_db} dB)` +
              `${used ? ' — forwarding STP tunnel (in use)' : ''}"` : '') +
         `>${e && e.from_db ? e.from_db : ''}</td>`;
@@ -208,7 +212,7 @@ function render(s) {
       : (d.connection_type ? d.connection_type.split(' ')[0]
          : (u.signal ? `wifi ${u.signal} dBm` : '—'));
     if (!d.wired_physical && u.switch) link += ` ← ${u.switch} p${u.sw_port}`;
-    return `<tr><td>${esc(d.room)}</td><td>${esc(d.ip)}</td>` +
+    return `<tr><td>${esc(nm(d))}</td><td>${esc(d.ip)}</td>` +
       `<td>${esc(d.model_number || '')}</td>` +
       `<td>${d.tcp_1400_open === false ? '<b style="color:var(--st-crit)">closed</b>' : 'open'}</td>` +
       `<td class="num">${p.loss_pct ?? '—'}</td>` +
