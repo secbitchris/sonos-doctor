@@ -78,35 +78,6 @@ def _annotate_phy_rates(snap, previous):
             d["phy_err_per_h"] = round((p1 - p0) / hours)
 
 
-def _notify_discord(findings, previous, snap):
-    """Post the findings DIFF (new + resolved) to a Discord webhook, if set."""
-    import os
-    import urllib.request
-    hook = os.environ.get("DISCORD_WEBHOOK", "").strip()
-    if not hook:
-        return
-    keyf = lambda f: (f["severity"], f["code"], f["subject"])
-    prev_keys = {keyf(f) for f in (previous or {}).get("_findings", [])
-                 if f["severity"] != "info"}
-    cur = {keyf(f): f for f in findings if f["severity"] != "info"}
-    new = [f for k, f in cur.items() if k not in prev_keys]
-    resolved = sorted(prev_keys - set(cur))
-    if not new and not resolved:
-        return
-    icon = {"crit": "🟥", "warn": "🟨"}
-    lines = [f"**sonos-doctor** — {snap.get('host')} {snap.get('generated')}"]
-    lines += [f"{icon[f['severity']]} NEW [{f['code']}] {f['subject']} — "
-              f"{f['message'][:180]}" for f in new]
-    lines += [f"✅ resolved [{c}] {s}" for _, c, s in resolved]
-    body = json.dumps({"content": "\n".join(lines)[:1900]}).encode()
-    try:
-        urllib.request.urlopen(urllib.request.Request(
-            hook, data=body, headers={"Content-Type": "application/json"}),
-            timeout=10)
-    except Exception as e:
-        print(f"discord notify failed: {e}", file=sys.stderr)
-
-
 def cmd_snapshot(a):
     log = (lambda m: print(f"  … {m}", file=sys.stderr)) if not a.json else (lambda m: None)
     snap = snapmod.take_snapshot(ping_count=a.ping_count,
@@ -119,8 +90,6 @@ def cmd_snapshot(a):
     previous = store.previous_snapshot(conn, snap["generated"])
     _annotate_phy_rates(snap, previous)
     findings = checks.run_checks(snap, previous)
-    if not a.dry_run:
-        _notify_discord(findings, previous, snap)
     if a.dry_run:
         sid = None
     else:
