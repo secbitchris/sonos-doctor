@@ -96,6 +96,9 @@ column at N dB; outlined cells are forwarding SonosNet tunnels (paths audio
 actually rides)</span></h2>
 <div class="card"><div class="legend" id="mlegend"></div>
 <div id="matrix"></div></div>
+<h2>Recent changes <span class="sub" style="text-transform:none">— when
+warnings appeared (+) and cleared (−) across snapshots</span></h2>
+<div class="card" id="timeline"></div>
 <h2>Mesh tree <span class="sub" style="text-transform:none">— who rides whom:
 each speaker's actual STP uplink, with the signal it hears its parent at</span></h2>
 <div class="card" id="tree"></div>
@@ -132,6 +135,18 @@ async function load(id) {
   render(snap);
   const hist = await (await fetch('/api/history')).json();
   sparks(snap, hist);
+  const tl = await (await fetch('/api/timeline')).json();
+  document.getElementById('timeline').innerHTML = tl.length ? tl.map(ev => {
+    const item = (f, sign) =>
+      `<span style="margin-right:14px">${sign == '+'
+        ? `<b style="color:${f.severity == 'crit' ? 'var(--st-crit)' : 'var(--st-warn)'}">+</b>`
+        : '<b style="color:var(--st-good)">−</b>'} ` +
+      `[${esc(f.code)}] ${esc(f.subject)}</span>`;
+    return `<div class="finding"><span class="sub" style="white-space:nowrap">` +
+      `${esc(ev.ts.slice(5, 16).replace('T', ' '))}</span><span>` +
+      ev.added.map(f => item(f, '+')).join('') +
+      ev.resolved.map(f => item(f, '-')).join('') + '</span></div>';
+  }).join('') : '<div class="sub">no warning changes recorded yet</div>';
 }
 
 function render(s) {
@@ -252,7 +267,7 @@ function render(s) {
     // speaker's own view wins: UniFi marks every Sonos "wired" (mesh MACs
     // are learned on the bridge ports); for wireless, show the bridge port
     let link = d.wired_physical ? 'wired'
-      : (d.connection_type ? d.connection_type.split(' ')[0]
+      : (d.connection_type ? d.connection_type.split(' ')[0].replace('Home', 'HT-5GHz')
          : (u.signal ? `wifi ${u.signal} dBm` : '—'));
     if (!d.wired_physical && u.switch) link += ` ← ${u.switch} p${u.sw_port}`;
     return `<tr><td>${esc(nm(d))}</td><td>${esc(d.ip)}</td>` +
@@ -341,6 +356,34 @@ class Handler(BaseHTTPRequestHandler):
                 sid = int(q["id"][0]) if q.get("id") else None
                 snap = store.get_snapshot(conn, sid)
                 self._json(snap if snap else {"error": "empty"})
+            elif url.path == "/api/timeline":
+                rows = conn.execute(
+                    "SELECT s.id, s.ts, f.severity, f.code, f.subject"
+                    " FROM snapshot s LEFT JOIN finding f"
+                    " ON f.snapshot_id = s.id AND f.severity != 'info'"
+                    " ORDER BY s.ts").fetchall()
+                snaps = {}
+                order = []
+                for r in rows:
+                    if r["id"] not in snaps:
+                        snaps[r["id"]] = {"ts": r["ts"], "keys": set()}
+                        order.append(r["id"])
+                    if r["code"]:
+                        snaps[r["id"]]["keys"].add(
+                            (r["severity"], r["code"], r["subject"]))
+                events = []
+                for prev_id, cur_id in zip(order, order[1:]):
+                    prev, cur = snaps[prev_id]["keys"], snaps[cur_id]["keys"]
+                    added = sorted(cur - prev)
+                    resolved = sorted(prev - cur)
+                    if added or resolved:
+                        events.append({
+                            "ts": snaps[cur_id]["ts"], "id": cur_id,
+                            "added": [{"severity": s, "code": c, "subject": j}
+                                      for s, c, j in added],
+                            "resolved": [{"severity": s, "code": c, "subject": j}
+                                         for s, c, j in resolved]})
+                self._json(events[::-1][:50])
             elif url.path == "/api/history":
                 macs = [r["mac"] for r in conn.execute(
                     "SELECT DISTINCT mac FROM device WHERE mac IS NOT NULL")]

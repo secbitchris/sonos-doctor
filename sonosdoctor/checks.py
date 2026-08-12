@@ -180,6 +180,33 @@ def run_checks(snap, previous=None, th=None):
                         f"{rev['from_db']} dB — points at local noise, antenna "
                         f"placement, or obstruction at the quieter end."))
 
+    # controller FDB vs mesh tree: a wireless speaker's MAC should be learned
+    # on its root bridge's switch port; disagreement = stale FDB or an
+    # undiscovered bridge (labels lie — applied to topology)
+    for mac, node in tree.items():
+        if node.get("via") != "sonosnet":
+            continue
+        d = by_mac.get(mac)
+        u = (d or {}).get("unifi") or {}
+        if not u.get("switch"):
+            continue
+        cur, seen = mac, set()
+        while tree.get(cur, {}).get("parent") and cur not in seen:
+            seen.add(cur)
+            cur = tree[cur]["parent"]
+        root_u = (by_mac.get(cur) or {}).get("unifi") or {}
+        if not root_u.get("switch") or not tree.get(cur, {}).get("via") == "lan":
+            continue
+        if (u["switch"], u.get("sw_port")) != (root_u["switch"],
+                                               root_u.get("sw_port")):
+            rd = by_mac.get(cur)
+            F.append(_f("info", "controller-path-mismatch", label(d),
+                        f"Controller learned this MAC on {u['switch']} port "
+                        f"{u.get('sw_port')}, but its mesh uplink chain ends at "
+                        f"{label(rd) if rd else cur} on {root_u['switch']} port "
+                        f"{root_u.get('sw_port')} — stale controller entry, or "
+                        f"an undiscovered bridge in the path."))
+
     heard_foreign = {}
     for e in snap.get("matrix", []):
         if not e.get("dst_resolved") and e["from_db"] >= th["foreign_db"]:

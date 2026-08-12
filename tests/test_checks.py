@@ -158,6 +158,21 @@ class TestMeshTree(unittest.TestCase):
         self.assertNotIn("unknown-mesh-neighbor",
                          codes(checks.run_checks(s)))
 
+    def test_controller_path_mismatch(self):
+        bridge = base_device(mac="cc:cc:cc:cc:cc:01", ip="192.168.1.53",
+                             room="Bridge", wired_physical=True,
+                             unifi={"switch": "SW-A", "sw_port": 9})
+        spk = base_device(unifi={"switch": "SW-B", "sw_port": 10})
+        tree = {"aa:aa:aa:aa:aa:01": {"parent": "cc:cc:cc:cc:cc:01",
+                                      "via": "sonosnet", "depth": 1},
+                "cc:cc:cc:cc:cc:01": {"parent": None, "via": "lan", "depth": 0}}
+        f = checks.run_checks(snap([spk, bridge], mesh_tree=tree))
+        self.assertIn("controller-path-mismatch", codes(f, "info"))
+        spk["unifi"] = {"switch": "SW-A", "sw_port": 9}   # agrees → quiet
+        self.assertNotIn("controller-path-mismatch",
+                         codes(checks.run_checks(snap([spk, bridge],
+                                                      mesh_tree=tree))))
+
     def test_reparent_detected(self):
         a, b = self.two_speakers()
         c = base_device(mac="dd:dd:dd:dd:dd:01", radio_mac="dd:dd:dd:dd:dd:02",

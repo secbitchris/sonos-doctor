@@ -27,7 +27,7 @@ def print_summary(snap, findings):
         if d.get("wired_physical"):
             link = "wired"
         elif d.get("connection_type"):
-            link = d["connection_type"].split(" ")[0]
+            link = d["connection_type"].split(" ")[0].replace("Home", "HT-5GHz")
         elif u.get("signal"):
             link = f"wifi {u.get('signal')}dBm"
         else:
