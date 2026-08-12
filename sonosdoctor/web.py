@@ -96,6 +96,9 @@ column at N dB; outlined cells are forwarding SonosNet tunnels (paths audio
 actually rides)</span></h2>
 <div class="card"><div class="legend" id="mlegend"></div>
 <div id="matrix"></div></div>
+<h2>Mesh tree <span class="sub" style="text-transform:none">— who rides whom:
+each speaker's actual STP uplink, with the signal it hears its parent at</span></h2>
+<div class="card" id="tree"></div>
 <h2>Fleet</h2><div class="card" id="fleet"></div>
 <div id="tip"></div>
 <script>
@@ -203,6 +206,46 @@ function render(s) {
     td.onmouseleave = hideTip;
   });
 
+  // ---- mesh tree ----
+  const tree = s.mesh_tree || {};
+  const kids = {};
+  Object.entries(tree).forEach(([mac, n]) => {
+    kids[n.parent || 'LAN'] = kids[n.parent || 'LAN'] || [];
+    kids[n.parent || 'LAN'].push(mac);
+  });
+  const edgeDb = (child, parent) => {
+    const e = edges[child + '|' + parent];
+    return e ? e.from_db : null;
+  };
+  function branch(mac, depth) {
+    const d = byMac[mac];
+    const n = tree[mac] || {};
+    const db = n.parent ? edgeDb(mac, n.parent) : null;
+    const u = (d || {}).unifi || {};
+    const where = !n.parent && u.switch ? ` — ${esc(u.switch)} p${u.sw_port}` : '';
+    const sig = db != null
+      ? ` <span style="color:${db < 20 ? 'var(--st-serious)' : 'var(--muted)'}">` +
+        `${db} dB</span>` : '';
+    let h = `<div style="padding:2px 0 2px ${depth * 26}px">` +
+      `${depth ? '<span style="color:var(--baseline)">└</span> ' : ''}` +
+      `<b>${esc(d ? nm(d) : mac)}</b>` +
+      `${!n.parent ? ' <span class="sub">(wired bridge' + where + ')</span>' : sig}` +
+      `${d && d.playing ? ' <span title="group is playing">♪</span>' : ''}</div>`;
+    (kids[mac] || []).sort((a, b) => (edgeDb(b, mac) || 0) - (edgeDb(a, mac) || 0))
+      .forEach(c => { h += branch(c, depth + 1); });
+    return h;
+  }
+  let treeHtml = (kids['LAN'] || []).map(m => branch(m, 0)).join('');
+  const orphanParents = Object.keys(kids).filter(p =>
+    p != 'LAN' && !(p in tree));
+  orphanParents.forEach(p => {
+    treeHtml += `<div style="padding:6px 0 2px"><b>${esc(p)}</b> ` +
+      `<span class="sub">(uplink outside the fleet — unresolved)</span></div>` +
+      kids[p].map(c => branch(c, 1)).join('');
+  });
+  document.getElementById('tree').innerHTML =
+    treeHtml || '<div class="sub">no tree data in this snapshot</div>';
+
   // ---- fleet table ----
   const rows = devs.map(d => {
     const p = d.ping || {}, u = d.unifi || {};
@@ -220,7 +263,8 @@ function render(s) {
       `<td class="num">${p.jitter_ms ?? '—'}</td>` +
       `<td class="num">${d.ani ?? '—'}</td>` +
       `<td class="num">${d.noise_floor ?? '—'}</td>` +
-      `<td>${esc(link)}</td>` +
+      `<td class="num">${d.phy_err_per_h != null ? d.phy_err_per_h.toLocaleString() : '—'}</td>` +
+      `<td>${esc(link)}${d.playing ? ' ♪' : ''}</td>` +
       `<td><svg class="spark" data-mac="${esc((d.mac || '').toLowerCase())}"` +
       ` width="110" height="26"></svg></td></tr>`;
   }).join('');
@@ -228,7 +272,8 @@ function render(s) {
     '<table><tr><th>Room</th><th>IP</th><th>Model</th><th>1400</th>' +
     '<th class="num">loss %</th><th class="num">avg ms</th>' +
     '<th class="num">jitter</th><th class="num">ANI</th>' +
-    '<th class="num">noise</th><th>link</th><th>jitter history</th></tr>' +
+    '<th class="num">noise</th><th class="num">PHY err/h</th>' +
+    '<th>link</th><th>jitter history</th></tr>' +
     rows + '</table>';
 }
 

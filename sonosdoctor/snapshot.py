@@ -129,5 +129,45 @@ def take_snapshot(ping_count=10, discover_timeout=4.0, use_unifi=True,
             bridges.setdefault(where, []).append(d.get("ip"))
     snap["bridge_points"] = bridges
 
+    # Mesh tree: each speaker's actual uplink = the tunnel on its STP root
+    # port. This is the "who rides whom" picture — the causal structure the
+    # matrix alone can't show.
+    tree = {}
+    for d in devices:
+        mac = (d.get("mac") or "").lower()
+        s = d.get("stp") or {}
+        if not mac:
+            continue
+        if d.get("wired_physical"):
+            tree[mac] = {"parent": None, "via": "lan",
+                         "path_cost": s.get("root_path_cost")}
+            continue
+        up = next((p for p in s.get("ports", [])
+                   if p.get("index") == s.get("root_port")), None)
+        if up and up.get("tunnel_to"):
+            tree[mac] = {"parent": radio_to_mac.get(up["tunnel_to"],
+                                                    up["tunnel_to"]),
+                         "via": "sonosnet",
+                         "path_cost": s.get("root_path_cost")}
+    for mac, node in tree.items():             # hop depth (loop-safe walk)
+        depth, seen, cur = 0, set(), mac
+        while tree.get(cur, {}).get("parent") and cur not in seen:
+            seen.add(cur)
+            cur = tree[cur]["parent"]
+            depth += 1
+        node["depth"] = depth
+    snap["mesh_tree"] = tree
+
+    # playback state per group (does trouble correlate with actual audio?)
+    for g in groups:
+        coord = next((m for m in g["members"]
+                      if m.get("uuid") == g["coordinator"]), None)
+        if coord and coord.get("ip"):
+            g["transport"] = topology.fetch_transport(coord["ip"])
+    playing_groups = {g["id"] for g in groups if g.get("transport") == "PLAYING"}
+    for d in devices:
+        if d.get("group"):
+            d["playing"] = d["group"] in playing_groups
+
     snap["devices"] = sorted(devices, key=lambda d: d.get("ip") or "")
     return snap

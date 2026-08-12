@@ -15,6 +15,8 @@ THRESHOLDS = {
                                 # always busy) — 10 disables the check for them
     "noise_floor_warn_dbm": -87,
     "switch_prio_weak": 32768,  # Sonos advertises ~32768 — ties are losable
+    "asym_db": 15,              # |A hears B − B hears A| on a tree edge
+    "foreign_db": 25,           # unknown radio heard this loud = investigate
 }
 
 
@@ -160,6 +162,37 @@ def run_checks(snap, previous=None, th=None):
                     f"(redundant paths — healthy ONLY while STP is healthy): "
                     f"{'; '.join(sorted(bridges))}"))
 
+    # ---- mesh-tree checks ----
+    tree = snap.get("mesh_tree") or {}
+    for mac, node in tree.items():
+        parent = node.get("parent")
+        if not parent or node.get("via") != "sonosnet":
+            continue
+        d, pd = by_mac.get(mac), by_mac.get(parent)
+        fwd = edge_by_pair.get((mac, parent))
+        rev = edge_by_pair.get((parent, mac))
+        if fwd and rev and fwd["from_db"] and rev["from_db"] and \
+                abs(fwd["from_db"] - rev["from_db"]) >= th["asym_db"]:
+            F.append(_f("warn", "asymmetric-path",
+                        label(d) if d else mac,
+                        f"Uplink to {label(pd) if pd else parent} is asymmetric: "
+                        f"hears parent at {fwd['from_db']} dB but is heard at "
+                        f"{rev['from_db']} dB — points at local noise, antenna "
+                        f"placement, or obstruction at the quieter end."))
+
+    heard_foreign = {}
+    for e in snap.get("matrix", []):
+        if not e.get("dst_resolved") and e["from_db"] >= th["foreign_db"]:
+            heard_foreign.setdefault(e["dst_mac"], []).append(
+                (e["src_mac"], e["from_db"]))
+    for fmac, hearers in heard_foreign.items():
+        loudest = max(h[1] for h in hearers)
+        F.append(_f("info", "unknown-mesh-neighbor", fmac,
+                    f"Radio {fmac} is not in this household but "
+                    f"{len(hearers)} player(s) hear it (loudest {loudest} dB) — "
+                    f"a neighbour's Sonos on the same channel, or a forgotten "
+                    f"device. It competes for the same airtime."))
+
     # ---- history-based checks ----
     if previous:
         prev_by_mac = {(d.get("mac") or "").lower(): d
@@ -175,4 +208,17 @@ def run_checks(snap, previous=None, th=None):
                 F.append(_f("info", "reboot-detected", label(d),
                             f"BootSeq {b0} → {b1} — rebooted "
                             f"{b1 - b0} time(s) since the previous snapshot."))
+        prev_tree = previous.get("mesh_tree") or {}
+        for mac, node in (snap.get("mesh_tree") or {}).items():
+            old = prev_tree.get(mac)
+            if old and old.get("parent") and node.get("parent") \
+                    and old["parent"] != node["parent"]:
+                d = by_mac.get(mac)
+                oldp, newp = by_mac.get(old["parent"]), by_mac.get(node["parent"])
+                F.append(_f("info", "mesh-reparented", label(d) if d else mac,
+                            f"Uplink moved: "
+                            f"{label(oldp) if oldp else old['parent']} → "
+                            f"{label(newp) if newp else node['parent']}. "
+                            f"Occasional moves are normal; frequent re-parenting "
+                            f"is the signature of a marginal RF path."))
     return F

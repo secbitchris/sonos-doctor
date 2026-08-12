@@ -53,6 +53,60 @@ def print_summary(snap, findings):
     print("=" * 76)
 
 
+def _parse_ts(ts):
+    import datetime
+    try:
+        return datetime.datetime.strptime(ts[:19], "%Y-%m-%dT%H:%M:%S")
+    except Exception:
+        return None
+
+
+def _annotate_phy_rates(snap, previous):
+    """PHY-error counters are cumulative; the per-hour delta is the trend."""
+    if not previous:
+        return
+    t0, t1 = _parse_ts(previous.get("generated", "")), _parse_ts(snap["generated"])
+    if not t0 or not t1 or t1 <= t0:
+        return
+    hours = (t1 - t0).total_seconds() / 3600
+    prev = {(d.get("mac") or "").lower(): d.get("phy_errors")
+            for d in previous.get("devices", [])}
+    for d in snap.get("devices", []):
+        p0 = prev.get((d.get("mac") or "").lower())
+        p1 = d.get("phy_errors")
+        if p0 is not None and p1 is not None and p1 >= p0:
+            d["phy_err_per_h"] = round((p1 - p0) / hours)
+
+
+def _notify_discord(findings, previous, snap):
+    """Post the findings DIFF (new + resolved) to a Discord webhook, if set."""
+    import os
+    import urllib.request
+    hook = os.environ.get("DISCORD_WEBHOOK", "").strip()
+    if not hook:
+        return
+    keyf = lambda f: (f["severity"], f["code"], f["subject"])
+    prev_keys = {keyf(f) for f in (previous or {}).get("_findings", [])
+                 if f["severity"] != "info"}
+    cur = {keyf(f): f for f in findings if f["severity"] != "info"}
+    new = [f for k, f in cur.items() if k not in prev_keys]
+    resolved = sorted(prev_keys - set(cur))
+    if not new and not resolved:
+        return
+    icon = {"crit": "🟥", "warn": "🟨"}
+    lines = [f"**sonos-doctor** — {snap.get('host')} {snap.get('generated')}"]
+    lines += [f"{icon[f['severity']]} NEW [{f['code']}] {f['subject']} — "
+              f"{f['message'][:180]}" for f in new]
+    lines += [f"✅ resolved [{c}] {s}" for _, c, s in resolved]
+    body = json.dumps({"content": "\n".join(lines)[:1900]}).encode()
+    try:
+        urllib.request.urlopen(urllib.request.Request(
+            hook, data=body, headers={"Content-Type": "application/json"}),
+            timeout=10)
+    except Exception as e:
+        print(f"discord notify failed: {e}", file=sys.stderr)
+
+
 def cmd_snapshot(a):
     log = (lambda m: print(f"  … {m}", file=sys.stderr)) if not a.json else (lambda m: None)
     snap = snapmod.take_snapshot(ping_count=a.ping_count,
@@ -63,7 +117,10 @@ def cmd_snapshot(a):
                                  force_sweep=a.sweep is not None, log=log)
     conn = store.open_db(a.db)
     previous = store.previous_snapshot(conn, snap["generated"])
+    _annotate_phy_rates(snap, previous)
     findings = checks.run_checks(snap, previous)
+    if not a.dry_run:
+        _notify_discord(findings, previous, snap)
     if a.dry_run:
         sid = None
     else:

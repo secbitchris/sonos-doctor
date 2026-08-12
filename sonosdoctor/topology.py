@@ -55,6 +55,33 @@ def _member_dict(el, role):
     return d
 
 
+TRANSPORT_BODY = (
+    '<?xml version="1.0"?>'
+    '<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" '
+    's:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"><s:Body>'
+    '<u:GetTransportInfo xmlns:u="urn:schemas-upnp-org:service:AVTransport:1">'
+    "<InstanceID>0</InstanceID></u:GetTransportInfo></s:Body></s:Envelope>")
+
+
+def fetch_transport(ip, timeout=5.0):
+    """Playback state of a group coordinator: PLAYING / PAUSED / STOPPED."""
+    req = urllib.request.Request(
+        f"http://{ip}:1400/MediaRenderer/AVTransport/Control",
+        data=TRANSPORT_BODY.encode(),
+        headers={
+            "SOAPACTION":
+                '"urn:schemas-upnp-org:service:AVTransport:1#GetTransportInfo"',
+            "Content-Type": 'text/xml; charset="utf-8"',
+        })
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as f:
+            m = re.search(r"<CurrentTransportState>(\w+)</CurrentTransportState>",
+                          f.read().decode("utf-8", "ignore"))
+            return m.group(1) if m else None
+    except Exception:
+        return None
+
+
 def parse_zone_groups(soap_xml):
     """→ list of {id, coordinator, members:[...]}; satellites flagged by role."""
     m = re.search(r"<ZoneGroupState>(.*?)</ZoneGroupState>", soap_xml, re.S)

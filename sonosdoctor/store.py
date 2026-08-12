@@ -113,9 +113,15 @@ def get_snapshot(conn, sid=None):
 
 def previous_snapshot(conn, before_ts):
     row = conn.execute(
-        "SELECT raw FROM snapshot WHERE ts < ? ORDER BY ts DESC LIMIT 1",
+        "SELECT id, raw FROM snapshot WHERE ts < ? ORDER BY ts DESC LIMIT 1",
         (before_ts,)).fetchone()
-    return json.loads(row["raw"]) if row else None
+    if not row:
+        return None
+    snap = json.loads(row["raw"])
+    snap["_findings"] = [dict(r) for r in conn.execute(
+        "SELECT severity, code, subject, message FROM finding"
+        " WHERE snapshot_id=?", (row["id"],))]
+    return snap
 
 
 def device_history(conn, mac, limit=500):

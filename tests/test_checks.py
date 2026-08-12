@@ -122,6 +122,58 @@ class TestLinkQuality(unittest.TestCase):
         self.assertNotIn("weak-mesh-path", codes(checks.run_checks(s)))
 
 
+class TestMeshTree(unittest.TestCase):
+    def two_speakers(self):
+        a = base_device()
+        b = base_device(mac="cc:cc:cc:cc:cc:01", radio_mac="cc:cc:cc:cc:cc:02",
+                        ip="192.168.1.53", room="Far Room")
+        return a, b
+
+    def test_asymmetric_path(self):
+        a, b = self.two_speakers()
+        s = snap([a, b], mesh_tree={
+            "aa:aa:aa:aa:aa:01": {"parent": "cc:cc:cc:cc:cc:01",
+                                  "via": "sonosnet", "depth": 1},
+            "cc:cc:cc:cc:cc:01": {"parent": None, "via": "lan", "depth": 0}},
+            matrix=[
+                {"src_mac": "aa:aa:aa:aa:aa:01", "dst_mac": "cc:cc:cc:cc:cc:01",
+                 "dst_resolved": True, "from_db": 45, "to_db": 20, "stp": 0},
+                {"src_mac": "cc:cc:cc:cc:cc:01", "dst_mac": "aa:aa:aa:aa:aa:01",
+                 "dst_resolved": True, "from_db": 20, "to_db": 45, "stp": 0}])
+        f = checks.run_checks(s)
+        self.assertIn("asymmetric-path", codes(f, "warn"))
+        # balanced edge → quiet
+        for e in s["matrix"]:
+            e["from_db"] = 40
+        self.assertNotIn("asymmetric-path", codes(checks.run_checks(s)))
+
+    def test_unknown_mesh_neighbor(self):
+        a, _ = self.two_speakers()
+        s = snap([a], matrix=[
+            {"src_mac": "aa:aa:aa:aa:aa:01", "dst_mac": "de:ad:be:ef:00:01",
+             "dst_resolved": False, "from_db": 33, "to_db": 0, "stp": 0}])
+        f = checks.run_checks(s)
+        self.assertIn("unknown-mesh-neighbor", codes(f, "info"))
+        s["matrix"][0]["from_db"] = 10          # too quiet to matter
+        self.assertNotIn("unknown-mesh-neighbor",
+                         codes(checks.run_checks(s)))
+
+    def test_reparent_detected(self):
+        a, b = self.two_speakers()
+        c = base_device(mac="dd:dd:dd:dd:dd:01", radio_mac="dd:dd:dd:dd:dd:02",
+                        ip="192.168.1.54", room="Third Room")
+        prev = snap([a, b, c], mesh_tree={
+            "aa:aa:aa:aa:aa:01": {"parent": "cc:cc:cc:cc:cc:01",
+                                  "via": "sonosnet", "depth": 1}})
+        cur = snap([a, b, c], mesh_tree={
+            "aa:aa:aa:aa:aa:01": {"parent": "dd:dd:dd:dd:dd:01",
+                                  "via": "sonosnet", "depth": 1}})
+        f = checks.run_checks(cur, previous=prev)
+        self.assertIn("mesh-reparented", codes(f, "info"))
+        self.assertNotIn("mesh-reparented",
+                         codes(checks.run_checks(cur, previous=cur)))
+
+
 class TestHistory(unittest.TestCase):
     def test_reboot_and_disappearance(self):
         prev = snap([base_device(boot_seq=10),
