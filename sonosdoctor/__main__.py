@@ -126,6 +126,13 @@ def cmd_serve(a):
     return 0
 
 
+def cmd_prune(a):
+    conn = store.open_db(a.db)
+    n = store.prune(conn, a.keep_days)
+    print(f"pruned {n} snapshot(s) older than {a.keep_days} days")
+    return 0
+
+
 def cmd_selftest(a):
     import os
     import unittest
@@ -183,6 +190,11 @@ def main(argv=None):
     s.add_argument("--bind", default="127.0.0.1")
     s.add_argument("--port", type=int, default=8090)
     s.set_defaults(fn=cmd_serve)
+
+    s = sub.add_parser("prune", parents=[common],
+                       help="delete snapshots older than --keep-days")
+    s.add_argument("--keep-days", type=int, default=180)
+    s.set_defaults(fn=cmd_prune)
 
     s = sub.add_parser("selftest", parents=[common], help="run the bundled test suite")
     s.set_defaults(fn=cmd_selftest)

@@ -126,6 +126,18 @@ def device_history(conn, mac, limit=500):
         " WHERE d.mac = ? ORDER BY s.ts DESC LIMIT ?", (mac.lower(), limit))][::-1]
 
 
+def prune(conn, keep_days=180):
+    """Delete snapshots (and their rows, via cascade) older than keep_days."""
+    import datetime
+    cutoff = (datetime.datetime.now() -
+              datetime.timedelta(days=keep_days)).strftime("%Y-%m-%dT%H:%M:%S")
+    conn.execute("PRAGMA foreign_keys=ON")
+    cur = conn.execute("DELETE FROM snapshot WHERE ts < ?", (cutoff,))
+    conn.commit()
+    conn.execute("VACUUM")
+    return cur.rowcount
+
+
 def import_legacy_json(conn, snap):
     """Ingest a sonosdiag.py --json snapshot (the legacy cron format)."""
     dup = conn.execute("SELECT 1 FROM snapshot WHERE ts=? AND source='sonosdiag'",

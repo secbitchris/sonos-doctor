@@ -67,6 +67,20 @@ class TestStore(unittest.TestCase):
         h = store.device_history(conn, "AA:AA:AA:AA:AA:01")
         self.assertEqual([r["jitter_ms"] for r in h], [1.0, 2.0])
 
+    def test_prune(self):
+        conn = store.open_db(self.db)
+        old = dict(SNAP, generated="2020-01-01T00:00:00-0400")
+        store.save_snapshot(conn, old)
+        store.save_snapshot(conn, SNAP)
+        self.assertEqual(store.prune(conn, keep_days=180), 1)
+        left = store.list_snapshots(conn)
+        self.assertEqual(len(left), 1)
+        self.assertEqual(left[0]["ts"], SNAP["generated"])
+        # cascade removed the orphaned child rows
+        self.assertEqual(conn.execute(
+            "SELECT COUNT(*) c FROM device d LEFT JOIN snapshot s"
+            " ON s.id=d.snapshot_id WHERE s.id IS NULL").fetchone()["c"], 0)
+
     def test_legacy_import_dedupes(self):
         conn = store.open_db(self.db)
         self.assertIsNotNone(store.import_legacy_json(conn, SNAP))
