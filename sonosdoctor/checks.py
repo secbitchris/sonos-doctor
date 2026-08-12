@@ -157,10 +157,12 @@ def run_checks(snap, previous=None, th=None):
                         "(extenders mangle multicast and double latency). "
                         "Move it to the main AP or wire it."))
         b = d.get("battery")
+        # PowerSource is BATTERY when unplugged; SONOS_CHARGING_RING /
+        # USB_POWER both mean external power (verified via SoCo)
         if b and isinstance(b.get("level"), int) and b["level"] <= 20 \
-                and str(b.get("power_source", "")).upper().find("CHARG") < 0:
+                and str(b.get("power_source", "")).upper() == "BATTERY":
             F.append(_f("warn", "low-battery", label(d),
-                        f"Battery at {b['level']}% and not charging "
+                        f"Battery at {b['level']}% and not on external power "
                         f"(health {b.get('health')})."))
     households = snap.get("households") or []
     if len(households) > 1:

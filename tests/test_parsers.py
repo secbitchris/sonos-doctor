@@ -68,6 +68,41 @@ class TestReview(unittest.TestCase):
                             for e in edges if e["dst_resolved"]))
 
 
+class TestBattery(unittest.TestCase):
+    def test_soco_verified_format(self):
+        from sonosdoctor.collect import parse_battery
+        b = parse_battery(
+            '<?xml version="1.0" ?><ZPSupportInfo><LocalBatteryStatus>'
+            '<Data name="Health">GREEN</Data><Data name="Level">100</Data>'
+            '<Data name="Temperature">NORMAL</Data>'
+            '<Data name="PowerSource">SONOS_CHARGING_RING</Data>'
+            '</LocalBatteryStatus></ZPSupportInfo>')
+        self.assertEqual(b["level"], 100)
+        self.assertEqual(b["power_source"], "SONOS_CHARGING_RING")
+        self.assertEqual(b["health"], "GREEN")
+
+    def test_no_battery_speaker(self):
+        from sonosdoctor.collect import parse_battery
+        self.assertIsNone(parse_battery("<ZPSupportInfo></ZPSupportInfo>"))
+
+
+class TestSWGen(unittest.TestCase):
+    def test_derived_from_firmware_major(self):
+        tmpl = ("<ZPSupportInfo><ZoneName>Z</ZoneName>"
+                "<MACAddress>AA:BB:CC:00:11:22</MACAddress>"
+                "<SoftwareVersion>{sw}</SoftwareVersion></ZPSupportInfo>")
+        s1 = review.parse_review(tmpl.format(sw="57.19-32160"))[0]
+        s2 = review.parse_review(tmpl.format(sw="96.0-78270"))[0]
+        self.assertEqual(s1["swgen"], "1")
+        self.assertEqual(s2["swgen"], "2")
+
+    def test_explicit_tag_wins(self):
+        xml = ("<ZPSupportInfo><ZoneName>Z</ZoneName>"
+               "<MACAddress>AA:BB:CC:00:11:22</MACAddress><SWGen>2</SWGen>"
+               "<SoftwareVersion>57.0-0</SoftwareVersion></ZPSupportInfo>")
+        self.assertEqual(review.parse_review(xml)[0]["swgen"], "2")
+
+
 class TestShowSTP(unittest.TestCase):
     def setUp(self):
         self.s = stp.parse_showstp(load("showstp.txt"))

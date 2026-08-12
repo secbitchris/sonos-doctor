@@ -57,6 +57,18 @@ Run `python3 -m sonosdoctor selftest` from the source tree to verify a
 checkout (35 tests pinned against real captured fleet data — including
 synthetic recreations of the incidents each check exists for).
 
+Packaged builds run a built-in smoke (`selftest` → 4 checks: parsers,
+S1 detection, battery format, root-bridge detector) since the full suite
+stays in the source tree.
+
+Device-generation notes: S1 firmware (≤ 57.x) predates the `SWGen` tag, so
+generation is derived from the firmware major version. Era-class speakers
+(Era 100/300, Move 2) expose the `:1400/status` endpoints but have no
+SonosNet radio and don't populate the matrix — they get discovery,
+identity, ping, topology and checks; mesh sections auto-hide. Battery
+parsing matches the format SoCo verifies against real Move/Roam hardware
+(`<Data name="Level">…`).
+
 Note: `tests/fixtures/` contains real (scrubbed) captures from the home
 fleet — keep the repo private, or re-scrub before publishing.
 

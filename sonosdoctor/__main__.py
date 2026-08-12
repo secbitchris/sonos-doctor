@@ -209,15 +209,61 @@ def cmd_prune(a):
     return 0
 
 
+def _builtin_smoke():
+    """Minimal field self-check for packaged builds (no test suite on disk)."""
+    from . import checks, collect, review, stp, topology, web  # noqa: F401
+    failures = []
+
+    s = stp.parse_showstp(
+        "br0\n bridge id\t\t9800.38420b000004\n"
+        " designated root\t1000.28704e000001\n"
+        " root port\t\t   2\t\t\tpath cost\t\t 248\n"
+        "ath0 (2) - tunnel to AA:BB:CC:DD:EE:FF "
+        "(remote STP state = forwarding, direct = 1)\n"
+        " port id\t\t8002\t\t\tstate\t\t\tforwarding\n")
+    if s.get("root_mac") != "28:70:4e:00:00:01" or s.get("root_prio") != 4096:
+        failures.append("showstp parser")
+
+    p = review.parse_review(
+        "<ZPSupportInfo><ZoneName>X</ZoneName><MACAddress>AA:BB:CC:00:11:22"
+        "</MACAddress><SoftwareVersion>57.19-1</SoftwareVersion>"
+        "<File name='/proc/ath_rincon/status'>IEEE channel: 6\n"
+        "OFDM ANI level: 4\nNode 11:22:33:44:55:66 - FROM 30 : TO 20 : STP 00"
+        " : MODEL 1.1: KEY 1\n</File></ZPSupportInfo>")
+    if not p or p[0].get("swgen") != "1" or not p[0]["neighbours"]:
+        failures.append("review parser / S1 detection")
+
+    b = collect.parse_battery(
+        '<ZPSupportInfo><LocalBatteryStatus>'
+        '<Data name="Level">17</Data><Data name="PowerSource">BATTERY</Data>'
+        '</LocalBatteryStatus></ZPSupportInfo>')
+    if not b or b.get("level") != 17:
+        failures.append("battery parser")
+
+    snap = {"devices": [{"ip": "1.2.3.4", "mac": "aa:aa:aa:aa:aa:01",
+                         "room": "T", "tcp_1400_open": True, "ping": {},
+                         "stp": {"root_prio": 32768,
+                                 "root_mac": "aa:aa:aa:aa:aa:01",
+                                 "ports": []}}],
+            "matrix": [], "unifi": {}}
+    if "stp-root-is-sonos" not in {f["code"] for f in checks.run_checks(snap)}:
+        failures.append("checks engine (root-bridge detector)")
+
+    for f in failures:
+        print(f"  FAIL {f}", file=sys.stderr)
+    print(f"built-in smoke: {'OK (4/4)' if not failures else 'FAILED'}")
+    return 0 if not failures else 1
+
+
 def cmd_selftest(a):
     import os
     import unittest
     tests = os.path.join(os.path.dirname(os.path.dirname(
         os.path.abspath(__file__))), "tests")
     if not os.path.isdir(tests):
-        print("test suite not present in this build (packaged .pyz?) — "
-              "run from the source tree", file=sys.stderr)
-        return 1
+        print("packaged build — running built-in smoke instead of the full "
+              "suite", file=sys.stderr)
+        return _builtin_smoke()
     suite = unittest.defaultTestLoader.discover(tests)
     result = unittest.TextTestRunner(verbosity=1).run(suite)
     return 0 if result.wasSuccessful() else 1

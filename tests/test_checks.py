@@ -96,6 +96,16 @@ class TestLinkQuality(unittest.TestCase):
         boost = base_device(ani=9, model="Sonos Boost")
         self.assertNotIn("high-ani", codes(checks.run_checks(snap([boost]))))
 
+    def test_low_battery_semantics(self):
+        # unplugged + low → warn
+        d = base_device(model="Sonos Roam",
+                        battery={"level": 15, "power_source": "BATTERY"})
+        self.assertIn("low-battery", codes(checks.run_checks(snap([d])), "warn"))
+        # charging (ring or USB) → quiet, even at low level
+        for src in ("SONOS_CHARGING_RING", "USB_POWER"):
+            d["battery"] = {"level": 15, "power_source": src}
+            self.assertNotIn("low-battery", codes(checks.run_checks(snap([d]))))
+
     def test_channel_mismatch(self):
         a = base_device()
         b = base_device(mac="aa:aa:aa:aa:aa:11", ip="192.168.1.52", channel=11)

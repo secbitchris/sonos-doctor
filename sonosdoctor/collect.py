@@ -62,16 +62,30 @@ def radio_macs(ip, timeout=5.0):
 
 
 def battery_status(ip, timeout=4.0):
-    """Roam/Move battery from /status/batterystatus (absent on mains models)."""
+    """Roam/Move battery from /status/batterystatus (absent on mains models).
+
+    Real format (verified against SoCo's parser of actual hardware):
+    <LocalBatteryStatus><Data name="Level">100</Data>
+    <Data name="PowerSource">SONOS_CHARGING_RING</Data>...
+    """
     txt = http_get(ip, "/status/batterystatus", timeout)
     if not txt:
         return None
+    return parse_battery(txt)
+
+
+def parse_battery(txt):
+    pairs = dict(re.findall(r'<Data name="([^"]+)"[^>]*>([^<]*)</Data>', txt))
+    if not pairs:                              # fallback: plain-tag variant
+        for tag in ("Level", "Health", "PowerSource", "Temperature"):
+            m = re.search(rf"<{tag}>([^<]+)</{tag}>", txt, re.I)
+            if m:
+                pairs[tag] = m.group(1)
     out = {}
-    for tag, key in (("Level", "level"), ("Health", "health"),
+    for src, key in (("Level", "level"), ("Health", "health"),
                      ("PowerSource", "power_source"), ("Temperature", "temp")):
-        m = re.search(rf"<{tag}>([^<]+)</{tag}>", txt, re.I)
-        if m:
-            out[key] = m.group(1)
+        if src in pairs:
+            out[key] = pairs[src]
     if "level" in out:
         try:
             out["level"] = int(re.sub(r"\D", "", out["level"]))

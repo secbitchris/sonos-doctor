@@ -38,6 +38,12 @@ def parse_review(xml):
                 p[key] = html.unescape(m.group(1))
         if p.get("mac"):
             p["mac"] = p["mac"].lower()
+        # S1 firmware predates the <SWGen> tag — derive the generation from
+        # the firmware major version (S1 is capped at 57.x; S2 starts at 58)
+        if "swgen" not in p and p.get("sw"):
+            m = re.match(r"(\d+)\.", p["sw"])
+            if m:
+                p["swgen"] = "1" if int(m.group(1)) <= 57 else "2"
 
         m = re.search(r"<File name='/proc/ath_rincon/status'>(.*?)</File>",
                       sect, re.S)
