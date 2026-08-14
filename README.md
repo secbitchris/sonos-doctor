@@ -54,7 +54,7 @@ the local /24 — and reports the broken multicast as a finding, because that
 IS a diagnosis. Force or widen the sweep with `--sweep [CIDR]`.
 
 Run `python3 -m sonosdoctor selftest` from the source tree to verify a
-checkout (35 tests pinned against real captured fleet data — including
+checkout (37 tests pinned against a captured 30-device fleet — including
 synthetic recreations of the incidents each check exists for).
 
 Packaged builds run a built-in smoke (`selftest` → 4 checks: parsers,
@@ -69,8 +69,13 @@ identity, ping, topology and checks; mesh sections auto-hide. Battery
 parsing matches the format SoCo verifies against real Move/Roam hardware
 (`<Data name="Level">…`).
 
-Note: `tests/fixtures/` contains real (scrubbed) captures from the home
-fleet — keep the repo private, or re-scrub before publishing.
+Note: `tests/fixtures/` holds anonymised captures from a real 30-device
+household. Room names are invented; MAC addresses keep only their vendor
+OUI, with the device portion renumbered — and everything derived from a
+MAC (serial numbers, `RINCON_` UUIDs, and the EUI-64 IPv6 addresses in
+the `ifconfig` captures) is renumbered to match, so the data stays
+internally consistent. The captures are otherwise untouched and still
+exercise the parsers against real-world output.
 
 ## Use
 
@@ -125,3 +130,7 @@ sonosdoctor/
   store.py       SQLite history + legacy import
   web.py         stdlib web UI
 ```
+
+## License
+
+MIT — see [LICENSE](LICENSE).
